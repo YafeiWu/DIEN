@@ -1,4 +1,5 @@
 import sys
+import traceback
 args = len(sys.argv)
 print('args #{}'.format(args))
 inpf =  sys.argv[1] if args>=2 else 'data/item-info-raw'
@@ -9,12 +10,22 @@ output = open(outpf, 'w')
 item_map = {}
 unknown_count = 0
 for line in input.readlines():
-    str = line.strip()
-    arr = str.split('\t')
-    if arr[0] not in item_map or "UNKNOWN" in item_map[arr[0]] or not item_map[arr[0]]:
-        item_map[arr[0]] = arr[1]
-    else:
-        unknown_count += 1
+    try:
+        str = line.strip()
+        arr = str.split('\t')
+        if len(arr)<2:
+            if arr[0] not in item_map:
+                item_map[arr[0]] = "UNKNOWN"
+            continue
+
+        if arr[0] not in item_map or "UNKNOWN" in item_map[arr[0]] or not item_map[arr[0]]:
+            item_map[arr[0]] = arr[1]
+        else:
+            unknown_count += 1
+    except Exception as e:
+        print('Exception: {}, Stack: {}, \n Line: {}'.format(e, traceback.format_exc(), line))
+        sys.exit()
+
 
 print("UNKNOWN category count # {}".format(unknown_count))
 

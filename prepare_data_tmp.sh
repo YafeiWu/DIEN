@@ -1,3 +1,4 @@
+set -e
 #export PATH="~/anaconda4/bin:$PATH"
 #wget http://snap.stanford.edu/data/amazon/productGraph/categoryFiles/reviews_Books.json.gz
 #wget http://snap.stanford.edu/data/amazon/productGraph/categoryFiles/meta_Books.json.gz
