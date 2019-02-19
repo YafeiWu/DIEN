@@ -47,7 +47,7 @@ class DataIterator:
         for source_dict in [uid_voc, mid_voc, cat_voc]:
             self.source_dicts.append(load_dict(source_dict))
 
-        f_meta = open("../data/item-info", "r")
+        f_meta = open("data/item-info", "r")
         meta_map = {}
         for line in f_meta:
             arr = line.strip().split("\t")
@@ -66,7 +66,7 @@ class DataIterator:
                 cat_idx = 0
             self.meta_id_map[mid_idx] = cat_idx
 
-        f_review = open("../data/reviews-info", "r")
+        f_review = open("data/reviews-info", "r")
         self.mid_list_for_random = []
         for line in f_review:
             arr = line.strip().split("\t")

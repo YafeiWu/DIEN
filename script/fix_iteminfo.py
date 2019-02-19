@@ -1,8 +1,8 @@
 import sys
 args = len(sys.argv)
 print('args #{}'.format(args))
-inpf =  sys.argv[1] if args>=2 else '../data/item-info-raw'
-outpf = sys.argv[2] if args>=3 else '../data/item-info'
+inpf =  sys.argv[1] if args>=2 else 'data/item-info-raw'
+outpf = sys.argv[2] if args>=3 else 'data/item-info'
 input = open(inpf, 'r')
 output = open(outpf, 'w')
 
