@@ -103,11 +103,11 @@ def eval(sess, test_data, model, model_path):
     return test_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
 def train(
-        train_file = "local_train_splitByUser",
-        test_file = "local_test_splitByUser",
-        uid_voc = "uid_voc.pkl",
-        mid_voc = "mid_voc.pkl",
-        cat_voc = "cat_voc.pkl",
+        train_file = "data/local_train_splitByUser",
+        test_file = "data/local_test_splitByUser",
+        uid_voc = "data/uid_voc.pkl",
+        mid_voc = "data/mid_voc.pkl",
+        cat_voc = "data/cat_voc.pkl",
         batch_size = 128,
         maxlen = 100,
         test_iter = 100,
