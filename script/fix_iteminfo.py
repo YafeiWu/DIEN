@@ -1,8 +1,8 @@
 import sys
 args = len(sys.argv)
 print('args #{}'.format(args))
-inpf =  sys.argv[1] if args>=2 else 'item-info'
-outpf = sys.argv[2] if args>=3 else 'item-info-refined'
+inpf =  sys.argv[1] if args>=2 else 'item-info-raw'
+outpf = sys.argv[2] if args>=3 else 'item-info'
 input = open(inpf, 'r')
 output = open(outpf, 'w')
 
@@ -11,17 +11,17 @@ unknown_count = 0
 for line in input.readlines():
     str = line.strip()
     arr = str.split('\t')
-    if arr[0] not in item_map or item_map[arr[0]]=="NEWS_UNKNOWN":
+    if arr[0] not in item_map or "UNKNOWN" in item_map[arr[0]] or not item_map[arr[0]]:
         item_map[arr[0]] = arr[1]
     else:
         unknown_count += 1
 
-print("NEWS_UNKNOWN count # {}".format(unknown_count))
+print("UNKNOWN category count # {}".format(unknown_count))
 
 for key in item_map:
     output.write("{}\t{}\n".format(key, item_map[key]))
 output.close()
-print('ALL DONE!')
+print('ALL DONE! # fix_iteminfo.py')
 
 
 # item_map = {}

@@ -84,7 +84,7 @@ def eval(sess, test_data, model, model_path):
     for src, tgt in test_data:
         nums += 1
         uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, noclk_mids, noclk_cats = prepare_data(src, tgt, return_neg=True)
-        prob, loss, acc, aux_loss = model.calculate(sess, [uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, noclk_mids, noclk_cats])
+        prob, loss, acc, aux_loss, merged = model.calculate(sess, [uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, noclk_mids, noclk_cats])
         loss_sum += loss
         aux_loss_sum = aux_loss
         accuracy_sum += acc
@@ -100,7 +100,7 @@ def eval(sess, test_data, model, model_path):
     if best_auc < test_auc:
         best_auc = test_auc
         model.save(sess, model_path)
-    return test_auc, loss_sum, accuracy_sum, aux_loss_sum
+    return test_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
 def train(
         train_file = "local_train_splitByUser",
@@ -113,10 +113,12 @@ def train(
         test_iter = 100,
         save_iter = 100,
         model_type = 'DNN',
-	seed = 2,
-):
+        seed = 2,
+    ):
     model_path = "dnn_save_path/ckpt_noshuff" + model_type + str(seed)
     best_model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
+    train_writer = tf.summary.FileWriter('dnn_logdir/train')
+    test_writer = tf.summary.FileWriter('dnn_logdir/test')
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False)
@@ -147,7 +149,8 @@ def train(
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         sys.stdout.flush()
-        print('test_auc: %.4f ---- test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, best_model_path))
+        test_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
+        print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
         sys.stdout.flush()
 
         start_time = time.time()
@@ -159,22 +162,26 @@ def train(
             aux_loss_sum = 0.
             for src, tgt in train_data:
                 uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, noclk_mids, noclk_cats = prepare_data(src, tgt, maxlen, return_neg=True)
-                loss, acc, aux_loss = model.train(sess, [uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, lr, noclk_mids, noclk_cats])
+                loss, acc, aux_loss, train_merged_summary = model.train(sess, [uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, lr, noclk_mids, noclk_cats])
                 loss_sum += loss
                 accuracy_sum += acc
                 aux_loss_sum += aux_loss
                 iter += 1
+                train_writer.add_summary(train_merged_summary, iter)
                 sys.stdout.flush()
                 if (iter % test_iter) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                           (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
-                    print('test_auc: %.4f ----test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, best_model_path))
+                    test_auc, test_loss, test_accuracy,  test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
+                    print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
+                    test_writer.add_summary(test_merged_summary, iter)
                     loss_sum = 0.0
                     accuracy_sum = 0.0
                     aux_loss_sum = 0.0
                 if (iter % save_iter) == 0:
                     print('save model iter: %d' %(iter))
                     model.save(sess, model_path+"--"+str(iter))
+
             lr *= 0.5
 
 def test(

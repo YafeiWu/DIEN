@@ -52,7 +52,7 @@ class DataIterator:
         for line in f_meta:
             arr = line.strip().split("\t")
             if arr[0] not in meta_map:
-                meta_map[arr[0]] = arr[1] if len(arr)>=2 else "UNKNOWN"
+                meta_map[arr[0]] = arr[1]
         self.meta_id_map ={}
         for key in meta_map:
             val = meta_map[key]

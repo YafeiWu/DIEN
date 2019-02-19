@@ -112,7 +112,7 @@ class Model(object):
 
     def train(self, sess, inps):
         if self.use_negsampling:
-            loss, accuracy, aux_loss, _ = sess.run([self.loss, self.accuracy, self.aux_loss, self.optimizer], feed_dict={
+            loss, accuracy, aux_loss, merged, _ = sess.run([self.loss, self.accuracy, self.aux_loss, self.merged, self.optimizer], feed_dict={
                 self.uid_batch_ph: inps[0],
                 self.mid_batch_ph: inps[1],
                 self.cat_batch_ph: inps[2],
@@ -125,9 +125,9 @@ class Model(object):
                 self.noclk_mid_batch_ph: inps[9],
                 self.noclk_cat_batch_ph: inps[10],
             })
-            return loss, accuracy, aux_loss
+            return loss, accuracy, aux_loss, merged
         else:
-            loss, accuracy, _ = sess.run([self.loss, self.accuracy, self.optimizer], feed_dict={
+            loss, accuracy, merged, _ = sess.run([self.loss, self.accuracy, self.merged, self.optimizer], feed_dict={
                 self.uid_batch_ph: inps[0],
                 self.mid_batch_ph: inps[1],
                 self.cat_batch_ph: inps[2],
@@ -138,11 +138,11 @@ class Model(object):
                 self.seq_len_ph: inps[7],
                 self.lr: inps[8],
             })
-            return loss, accuracy, 0
+            return loss, accuracy, 0, merged
 
     def calculate(self, sess, inps):
         if self.use_negsampling:
-            probs, loss, accuracy, aux_loss = sess.run([self.y_hat, self.loss, self.accuracy, self.aux_loss], feed_dict={
+            probs, loss, accuracy, aux_loss, merged = sess.run([self.y_hat, self.loss, self.accuracy, self.aux_loss, self.merged], feed_dict={
                 self.uid_batch_ph: inps[0],
                 self.mid_batch_ph: inps[1],
                 self.cat_batch_ph: inps[2],
@@ -154,9 +154,9 @@ class Model(object):
                 self.noclk_mid_batch_ph: inps[8],
                 self.noclk_cat_batch_ph: inps[9],
             })
-            return probs, loss, accuracy, aux_loss
+            return probs, loss, accuracy, aux_loss, merged
         else:
-            probs, loss, accuracy = sess.run([self.y_hat, self.loss, self.accuracy], feed_dict={
+            probs, loss, accuracy, merged = sess.run([self.y_hat, self.loss, self.accuracy, self.merged], feed_dict={
                 self.uid_batch_ph: inps[0],
                 self.mid_batch_ph: inps[1],
                 self.cat_batch_ph: inps[2],
@@ -166,7 +166,7 @@ class Model(object):
                 self.target_ph: inps[6],
                 self.seq_len_ph: inps[7]
             })
-            return probs, loss, accuracy, 0
+            return probs, loss, accuracy, 0, merged
 
     def save(self, sess, path):
         saver = tf.train.Saver()
