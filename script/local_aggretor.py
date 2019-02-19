@@ -2,9 +2,9 @@ import sys
 import hashlib
 import random
 
-fin = open("jointed-new-split-info", "r")
-ftrain = open("local_train", "w")
-ftest = open("local_test", "w")
+fin = open("../data/jointed-new-split-info", "r")
+ftrain = open("../data/local_train", "w")
+ftest = open("../data/local_test", "w")
 
 last_user = "0"
 common_fea = ""

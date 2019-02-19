@@ -1,8 +1,8 @@
 import random
 
-fi = open("local_test", "r")
-ftrain = open("local_train_splitByUser", "w")
-ftest = open("local_test_splitByUser", "w")
+fi = open("../data/local_test", "r")
+ftrain = open("../data/local_train_splitByUser", "w")
+ftest = open("../data/local_test_splitByUser", "w")
 
 while True:
     rand_int = random.randint(1, 10)
