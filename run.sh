@@ -1,3 +1,4 @@
+rm -rf dnn_*
 mkdir dnn_save_path
 mkdir dnn_best_model
 mkdir dnn_logdir dnn_logdir/train dnn_logdir/test

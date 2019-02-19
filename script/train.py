@@ -5,6 +5,7 @@ from model import *
 import time
 import random
 import sys
+import traceback
 from utils import *
 
 EMBEDDING_DIM = 18
@@ -82,8 +83,8 @@ def eval(sess, test_data, model, model_path):
     nums = 0
     stored_arr = []
     for src, tgt in test_data:
-        nums += 1
         uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, noclk_mids, noclk_cats = prepare_data(src, tgt, return_neg=True)
+        nums += 1
         prob, loss, acc, aux_loss, merged = model.calculate(sess, [uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, noclk_mids, noclk_cats])
         loss_sum += loss
         aux_loss_sum = aux_loss
@@ -121,8 +122,8 @@ def train(
     test_writer = tf.summary.FileWriter('dnn_logdir/test')
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False)
-        test_data = DataIterator(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen)
+        train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False, minlen=1)
+        test_data = DataIterator(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=1)
         n_uid, n_mid, n_cat = train_data.get_n()
         if model_type == 'DNN':
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
@@ -145,9 +146,11 @@ def train(
         else:
             print ("Invalid model_type : %s", model_type)
             return
+        print("{} build".format(model_type))
         # model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
+        print("{} local_variables_initializer done".format(model_type))
         sys.stdout.flush()
         test_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
         print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
@@ -161,27 +164,30 @@ def train(
             accuracy_sum = 0.
             aux_loss_sum = 0.
             for src, tgt in train_data:
-                uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, noclk_mids, noclk_cats = prepare_data(src, tgt, maxlen, return_neg=True)
-                loss, acc, aux_loss, train_merged_summary = model.train(sess, [uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, lr, noclk_mids, noclk_cats])
-                loss_sum += loss
-                accuracy_sum += acc
-                aux_loss_sum += aux_loss
-                iter += 1
-                train_writer.add_summary(train_merged_summary, iter)
-                sys.stdout.flush()
-                if (iter % test_iter) == 0:
-                    print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
-                                          (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
-                    test_auc, test_loss, test_accuracy,  test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
-                    print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
-                    test_writer.add_summary(test_merged_summary, iter)
-                    loss_sum = 0.0
-                    accuracy_sum = 0.0
-                    aux_loss_sum = 0.0
-                if (iter % save_iter) == 0:
-                    print('save model iter: %d' %(iter))
-                    model.save(sess, model_path+"--"+str(iter))
-
+                try:
+                    uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, noclk_mids, noclk_cats = prepare_data(src, tgt, maxlen, return_neg=True)
+                    loss, acc, aux_loss, train_merged_summary = model.train(sess, [uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, lr, noclk_mids, noclk_cats])
+                    loss_sum += loss
+                    accuracy_sum += acc
+                    aux_loss_sum += aux_loss
+                    iter += 1
+                    train_writer.add_summary(train_merged_summary, iter)
+                    sys.stdout.flush()
+                    if (iter % test_iter) == 0:
+                        print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
+                                              (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
+                        test_auc, test_loss, test_accuracy,  test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
+                        print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
+                        test_writer.add_summary(test_merged_summary, iter)
+                        loss_sum = 0.0
+                        accuracy_sum = 0.0
+                        aux_loss_sum = 0.0
+                    if (iter % save_iter) == 0:
+                        print('save model iter: %d' %(iter))
+                        model.save(sess, model_path+"--"+str(iter))
+                except Exception as e:
+                    print('Exception: {}, Stack: {}, \n Line: {}, {}'.format(e, traceback.format_exc(),  src, tgt))
+                    sys.exit()
             lr *= 0.5
 
 def test(
