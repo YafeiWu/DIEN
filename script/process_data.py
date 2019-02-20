@@ -4,6 +4,8 @@ import time
 from tqdm import tqdm
 import traceback
 
+NEGTIVE_NUM = 1
+
 def process_meta(file):
     fi = open(file, "r")
     fo = open("data/item-info", "w")
@@ -59,7 +61,7 @@ def manual_join():
                     items[1] = asin_neg
                     print>>fo, "0" + "\t" + "\t".join(items) + "\t" + meta_map[asin_neg]
                     j += 1
-                    if j == 1:             #negative sampling frequency
+                    if j == NEGTIVE_NUM:             #negative sampling frequency
                         break
                 if asin in meta_map:
                     print>>fo, "1" + "\t" + line + "\t" + meta_map[asin]
@@ -86,17 +88,17 @@ def split_test():
         line = line.strip()
         user = line.split("\t")[1]
         if user == last_user:
-            if i < user_count[user] - 2:  # 1 + negative samples
-                print>> fo, "20180118" + "\t" + line
+            if i < user_count[user] - (NEGTIVE_NUM+1):  # 1 + negative samples
+                print>> fo, "training_data" + "\t" + line
             else:
-                print>>fo, "20190119" + "\t" + line
+                print>>fo, "test_data" + "\t" + line
         else:
             last_user = user
             i = 0
             if i < user_count[user] - 2:
-                print>> fo, "20180118" + "\t" + line
+                print>> fo, "training_data" + "\t" + line
             else:
-                print>>fo, "20190119" + "\t" + line
+                print>>fo, "test_data" + "\t" + line
         i += 1
 
 #process_meta(sys.argv[1])

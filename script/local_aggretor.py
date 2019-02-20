@@ -18,7 +18,7 @@ for line in fin:
     dt = items[5]
     cat1 = items[6]
 
-    if ds=="20180118":
+    if ds=="training_data":
         fo = ftrain
     else:
         fo = ftest
