@@ -208,8 +208,8 @@ def test(
     model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen)
-        test_data = DataIterator(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen)
+        train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=1)
+        test_data = DataIterator(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=1)
         n_uid, n_mid, n_cat = train_data.get_n()
         if model_type == 'DNN':
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
