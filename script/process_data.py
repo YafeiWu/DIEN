@@ -26,10 +26,10 @@ def process_reviews(file):
         time = obj["unixReviewTime"]
         print>>fo, userID + "\t" + itemID + "\t" + str(rating) + "\t" + str(time)
 
-def manual_join():
+def manual_join(target_item=None):
     f_rev = open("data/reviews-info", "r")
     user_map = {}
-    item_list = []
+    item_list = [] #for negative samples
     for line in tqdm(f_rev,desc="processing reviews-info lines"):
         line = line.strip()
         items = line.split("\t")
@@ -38,7 +38,15 @@ def manual_join():
         if items[0] not in user_map:
             user_map[items[0]]= []
         user_map[items[0]].append(("\t".join(items), float(items[-1])))
-        item_list.append(items[1])
+        if target_item is not None:
+            if target_item == 'instaclip' and items[1].startswith('P-'):
+                item_list.append(items[1])
+            elif target_item == 'video' and items[1].startswith('V'):
+                item_list.append(items[1])
+            elif target_item == 'news' and not items[1].startswith('P-') and not items[1].startswith('V'):
+                item_list.append(items[1])
+        else:
+            item_list.append(items[1])
     f_meta = open("data/item-info", "r")
     meta_map = {}
     for line in tqdm(f_meta,desc="processing item-info lines"):
@@ -103,5 +111,5 @@ def split_test():
 
 #process_meta(sys.argv[1])
 #process_reviews(sys.argv[2])
-manual_join()
+manual_join(target_item='instaclip')
 split_test()
