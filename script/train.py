@@ -159,7 +159,8 @@ def train(
         start_time = time.time()
         iter = 0
         lr = 0.001
-        for itr in range(3):
+        for epoch in range(3):
+            start_one_epoch = time.time()
             loss_sum = 0.0
             accuracy_sum = 0.
             aux_loss_sum = 0.
@@ -188,18 +189,20 @@ def train(
                 except Exception as e:
                     print('Exception: {}, Stack: {}, \n Line: {}, {}'.format(e, traceback.format_exc(),  src, tgt))
                     sys.exit()
+            print('epoch {}. learning rate: {}. take time: {}'.format(epoch, lr, time.time()-start_one_epoch))
             lr *= 0.5
+        print('training done. take time:{}'.format(time.time()-start_time))
 
 def test(
-        train_file = "local_train_splitByUser",
-        test_file = "local_test_splitByUser",
-        uid_voc = "uid_voc.pkl",
-        mid_voc = "mid_voc.pkl",
-        cat_voc = "cat_voc.pkl",
+        train_file = "data/local_train_splitByUser",
+        test_file = "data/local_test_splitByUser",
+        uid_voc = "data/uid_voc.pkl",
+        mid_voc = "data/mid_voc.pkl",
+        cat_voc = "data/cat_voc.pkl",
         batch_size = 128,
         maxlen = 100,
         model_type = 'DNN',
-	seed = 2
+	    seed = 2
 ):
 
     model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
