@@ -233,7 +233,8 @@ def test(
             print ("Invalid model_type : %s", model_type)
             return
         model.restore(sess, model_path)
-        print('test_auc: %.4f ----test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, model_path))
+        test_auc, test_loss, test_accuracy,  test_aux_loss, test_merged_summary = eval(sess, test_data, model, model_path)
+        print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
 
 if __name__ == '__main__':
     if len(sys.argv) == 4:
