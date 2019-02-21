@@ -107,8 +107,8 @@ def eval(sess, test_data, model, model_path):
     return test_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
 def train(
-        train_file = "data/local_train_splitByUser",
-        test_file = "data/local_test_splitByUser",
+        train_file = "data/local_train",
+        test_file = "data/local_test",
         uid_voc = "data/uid_voc.pkl",
         mid_voc = "data/mid_voc.pkl",
         cat_voc = "data/cat_voc.pkl",
@@ -197,8 +197,8 @@ def train(
         print('training done. take time:{}'.format(time.time()-start_time))
 
 def test(
-        train_file = "data/local_train_splitByUser",
-        test_file = "data/local_test_splitByUser",
+        train_file = "data/local_train",
+        test_file = "data/local_test",
         uid_voc = "data/uid_voc.pkl",
         mid_voc = "data/mid_voc.pkl",
         cat_voc = "data/cat_voc.pkl",

@@ -1,6 +1,6 @@
 import cPickle
 
-f_train = open("data/local_train_splitByUser", "r")
+f_train = open("data/local_train", "r")
 uid_dict = {}
 mid_dict = {}
 cat_dict = {}
