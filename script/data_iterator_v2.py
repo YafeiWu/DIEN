@@ -43,6 +43,7 @@ class DataIteratorV2:
                  uid_voc,
                  mid_voc,
                  cat_voc,
+                 item_info,
                  batch_size=128,
                  maxlen=100,
                  skip_empty=False,
@@ -59,7 +60,7 @@ class DataIteratorV2:
         for source_dict in [uid_voc, mid_voc, cat_voc]:
             self.source_dicts.append(load_voc(source_dict))
 
-        f_meta = open("data/item-info", "r")
+        f_meta = open(item_info, "r")
         meta_map = {}
         self.mid_list_for_random = []
         for line in f_meta:

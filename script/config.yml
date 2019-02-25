@@ -3,6 +3,7 @@ test_file: "data/test_splitByUser"
 uid_voc: "data/uid_voc.json"
 mid_voc: "data/mid_voc.json"
 cat_voc: "data/cat_voc.json"
+item_info: "data/item_info.json"
 batch_size: 128
 maxlen: 100
 minlen: 1

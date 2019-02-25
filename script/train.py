@@ -123,6 +123,7 @@ def train(conf,seed):
     uid_voc = conf['uid_voc']
     mid_voc = conf['mid_voc']
     cat_voc = conf['cat_voc']
+    item_info = conf['item_info']
     batch_size = conf['batch_size']
     maxlen = conf['maxlen']
     minlen  = conf['minlen']
@@ -143,8 +144,8 @@ def train(conf,seed):
     test_writer = tf.summary.FileWriter('dnn_logdir/test')
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False, minlen=minlen)
-        test_data = DataIteratorV2(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=minlen)
+        train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, shuffle_each_epoch=False, minlen=minlen)
+        test_data = DataIteratorV2(test_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, minlen=minlen)
         n_uid, n_mid, n_cat = train_data.get_n()
         if model_type == 'DNN':
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
@@ -220,6 +221,7 @@ def test(conf, seed):
     uid_voc = conf['uid_voc']
     mid_voc = conf['mid_voc']
     cat_voc = conf['cat_voc']
+    item_info = conf['item_info']
     batch_size = conf['batch_size']
     maxlen = conf['maxlen']
     minlen  = conf['minlen']
@@ -238,8 +240,8 @@ def test(conf, seed):
     model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=minlen)
-        test_data = DataIteratorV2(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=minlen)
+        train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, minlen=minlen)
+        test_data = DataIteratorV2(test_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, minlen=minlen)
         n_uid, n_mid, n_cat = train_data.get_n()
         if model_type == 'DNN':
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
