@@ -117,7 +117,7 @@ def eval(sess, test_data, model, model_path):
         model.save(sess, model_path)
     return test_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
-def train(conf):
+def train(conf,seed):
     train_file = conf['train_file']
     test_file = conf['test_file']
     uid_voc = conf['uid_voc']
@@ -127,7 +127,6 @@ def train(conf):
     maxlen = conf['maxlen']
     minlen  = conf['minlen']
     model_type = conf['model_type']
-    seed = 2
     # train_file = "data/local_train"
     # test_file = "data/local_test"
     # uid_voc = "data/uid_voc.pkl"
@@ -215,7 +214,7 @@ def train(conf):
             lr *= 0.5
         print('training done. take time:{}'.format(time.time()-start_time))
 
-def test(conf):
+def test(conf, seed):
     train_file = conf['train_file']
     test_file = conf['test_file']
     uid_voc = conf['uid_voc']
@@ -225,7 +224,6 @@ def test(conf):
     maxlen = conf['maxlen']
     minlen  = conf['minlen']
     model_type = conf['model_type']
-    seed = 2
     # train_file = "data/local_train"
     # test_file = "data/local_test"
     # uid_voc = "data/uid_voc.pkl"
