@@ -23,9 +23,17 @@ def load_voc(filename):
         with open(filename, 'rb') as f:
             lines = f.readlines()
             res_dict = {}
+            keys = []
             for line in lines:
-                arr = line.strip().split('\t')
-                res_dict[arr[0]] = arr[1]
+                arr = json.loads(line.strip())
+                if not keys:
+                    keys = arr.keys()
+                for k in keys:
+                    if isinstance(arr[k],str):
+                        id = arr[k]
+                    elif isinstance(arr[k],(int,long)):
+                        index = arr[k]
+                res_dict[id] = index
             return res_dict
     except Exception as e:
         print('ERROR {}'.format(traceback.format_exc(e)))
@@ -64,11 +72,14 @@ class DataIteratorV2:
         meta_map = {}
         self.mid_list_for_random = []
         for line in f_meta:
-            arr = line.strip().split("\t")
-            if arr[0] not in meta_map:
-                meta_map[arr[0]] = arr[1]
-            tmp_negidx  = self.source_dicts[1][arr[0]]
-            tmp_negarr = [tmp_negidx]*int(arr[2])
+            arr = json.loads(line.strip())
+            id = arr["news_entry_id"]
+            cate = arr["category"]
+            num = int(arr["eplays"])
+            if id not in meta_map:
+                meta_map[id] = cate
+            tmp_negidx  = self.source_dicts[1][id]
+            tmp_negarr = [tmp_negidx]*num
             self.mid_list_for_random.expend(tmp_negarr)
 
         self.meta_id_map ={}
