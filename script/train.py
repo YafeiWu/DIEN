@@ -1,5 +1,5 @@
 import numpy
-from data_iterator import DataIterator
+from data_iterator import DataIterator,DataIteratorV2
 import tensorflow as tf
 from model import *
 import time
@@ -7,11 +7,21 @@ import random
 import sys
 import traceback
 from utils import *
+import yaml
 
 EMBEDDING_DIM = 18
 HIDDEN_SIZE = 18 * 2
 ATTENTION_SIZE = 18 * 2
-best_auc = 0.0
+best_auc = 0.
+
+def config(configpath):
+    with open(configpath, 'r') as f:
+        content = f.read()
+    paras = yaml.load(content)
+    # if date is not None:
+    #     self.paras['modeldir'] = self.paras['modeldir'].format(date)
+    #     self.paras['logdir'] = self.paras['logdir'].format(date)
+    return paras
 
 def prepare_data(input, target, maxlen = None, return_neg = False):
     # x: a list of sentences
@@ -106,27 +116,35 @@ def eval(sess, test_data, model, model_path):
         model.save(sess, model_path)
     return test_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
-def train(
-        train_file = "data/local_train",
-        test_file = "data/local_test",
-        uid_voc = "data/uid_voc.pkl",
-        mid_voc = "data/mid_voc.pkl",
-        cat_voc = "data/cat_voc.pkl",
-        batch_size = 128,
-        maxlen = 100,
-        test_iter = 100,
-        save_iter = 100,
-        model_type = 'DNN',
-        seed = 2,
-    ):
+def train(conf):
+    train_file = conf['train_file']
+    test_file = conf['test_file']
+    uid_voc = conf['uid_voc']
+    mid_voc = conf['mid_voc']
+    cat_voc = conf['cat_voc']
+    batch_size = conf['batch_size']
+    maxlen = conf['maxlen']
+    minlen  = conf['minlen']
+    model_type = conf['model_type']
+    seed = 2
+    # train_file = "data/local_train"
+    # test_file = "data/local_test"
+    # uid_voc = "data/uid_voc.pkl"
+    # mid_voc = "data/mid_voc.pkl"
+    # cat_voc = "data/cat_voc.pkl"
+    # batch_size = 128
+    # maxlen = 100
+    # minlen = 1
+    # model_type = 'DNN'
+    # seed = 2
     model_path = "dnn_save_path/ckpt_noshuff" + model_type + str(seed)
     best_model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
     train_writer = tf.summary.FileWriter('dnn_logdir/train')
     test_writer = tf.summary.FileWriter('dnn_logdir/test')
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False, minlen=1)
-        test_data = DataIterator(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=1)
+        train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False, minlen=minlen)
+        test_data = DataIteratorV2(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=minlen)
         n_uid, n_mid, n_cat = train_data.get_n()
         if model_type == 'DNN':
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
@@ -196,23 +214,33 @@ def train(
             lr *= 0.5
         print('training done. take time:{}'.format(time.time()-start_time))
 
-def test(
-        train_file = "data/local_train",
-        test_file = "data/local_test",
-        uid_voc = "data/uid_voc.pkl",
-        mid_voc = "data/mid_voc.pkl",
-        cat_voc = "data/cat_voc.pkl",
-        batch_size = 128,
-        maxlen = 100,
-        model_type = 'DNN',
-	    seed = 2
-):
+def test(conf):
+    train_file = conf['train_file']
+    test_file = conf['test_file']
+    uid_voc = conf['uid_voc']
+    mid_voc = conf['mid_voc']
+    cat_voc = conf['cat_voc']
+    batch_size = conf['batch_size']
+    maxlen = conf['maxlen']
+    minlen  = conf['minlen']
+    model_type = conf['model_type']
+    seed = 2
+    # train_file = "data/local_train"
+    # test_file = "data/local_test"
+    # uid_voc = "data/uid_voc.pkl"
+    # mid_voc = "data/mid_voc.pkl"
+    # cat_voc = "data/cat_voc.pkl"
+    # batch_size = 128
+    # maxlen = 100
+    # minlen = 1
+    # model_type = 'DNN'
+    # seed = 2
 
     model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=1)
-        test_data = DataIterator(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=1)
+        train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=minlen)
+        test_data = DataIteratorV2(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, minlen=minlen)
         n_uid, n_mid, n_cat = train_data.get_n()
         if model_type == 'DNN':
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
@@ -240,17 +268,15 @@ def test(
         print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
 
 if __name__ == '__main__':
-    if len(sys.argv) == 4:
-        SEED = int(sys.argv[3])
-    else:
-        SEED = 3
+    conf = config(sys.argv[2])
+    SEED = conf['seed']
     tf.set_random_seed(SEED)
     numpy.random.seed(SEED)
     random.seed(SEED)
     if sys.argv[1] == 'train':
-        train(model_type=sys.argv[2], seed=SEED)
+        train(conf, seed=SEED)
     elif sys.argv[1] == 'test':
-        test(model_type=sys.argv[2], seed=SEED)
+        test(conf, seed=SEED)
     else:
         print('do nothing...')
 

@@ -1,0 +1,10 @@
+train_file: "data/train_splitByUser"
+test_file: "data/test_splitByUser"
+uid_voc: "data/uid_voc.json"
+mid_voc: "data/mid_voc.json"
+cat_voc: "data/cat_voc.json"
+batch_size: 128
+maxlen: 100
+minlen: 1
+model_type: 'DIEN'
+seed: 2
