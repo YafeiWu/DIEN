@@ -1,5 +1,6 @@
 import numpy
-from data_iterator import DataIterator,DataIteratorV2
+from data_iterator import DataIterator
+from data_iterator_v2 import DataIteratorV2
 import tensorflow as tf
 from model import *
 import time
