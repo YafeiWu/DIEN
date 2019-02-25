@@ -24,6 +24,7 @@ def load_voc(filename):
             lines = f.readlines()
             res_dict = {}
             keys = []
+            id,index =None,None
             for line in lines:
                 arr = json.loads(line.strip())
                 if not keys:
@@ -33,7 +34,8 @@ def load_voc(filename):
                         id = arr[k]
                     elif isinstance(arr[k],(int,long)):
                         index = arr[k]
-                res_dict[id] = index
+                if None is not in [id, index]:
+                    res_dict[id] = index
             return res_dict
     except Exception as e:
         print('ERROR {}'.format(traceback.format_exc(e)))
