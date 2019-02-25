@@ -30,10 +30,12 @@ def load_voc(filename):
                 if not keys:
                     keys = arr.keys()
                 for k in keys:
-                    if isinstance(arr[k],str):
+                    if isinstance(arr[k],(str,unicode)):
                         id = arr[k]
                     elif isinstance(arr[k],(int,long)):
                         index = arr[k]
+                    else:
+                        print("Type Error # {}".format(type(arr[k])))
                 if None not in [id, index]:
                     res_dict[id] = index
             return res_dict
@@ -82,7 +84,7 @@ class DataIteratorV2:
                 meta_map[id] = cate
             tmp_negidx  = self.source_dicts[1][id]
             tmp_negarr = [tmp_negidx]*num
-            self.mid_list_for_random.expend(tmp_negarr)
+            self.mid_list_for_random.extend(tmp_negarr)
 
         self.meta_id_map ={}
         for key in meta_map:
@@ -113,6 +115,14 @@ class DataIteratorV2:
         self.k = batch_size * max_batch_size
 
         self.end_of_data = False
+
+    def print_data_info(self):
+        print("source # {}".format(self.source))
+        print("n_uid # {}".format(self.n_uid))
+        print("n_mid # {}".format(self.n_mid))
+        print("n_cat # {}".format(self.n_cat))
+        print("mid_list_for_random # {}".format(len(self.mid_list_for_random)))
+
 
     def get_n(self):
         return self.n_uid, self.n_mid, self.n_cat
@@ -218,6 +228,7 @@ class DataIteratorV2:
                     break
         except IOError:
             self.end_of_data = True
+            print("End of data")
 
         # all sentence pairs in maxibatch filtered out because of length
         if len(source) == 0 or len(target) == 0:

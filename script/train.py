@@ -145,7 +145,9 @@ def train(conf,seed):
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, shuffle_each_epoch=False, minlen=minlen)
+        train_data.print_data_info()
         test_data = DataIteratorV2(test_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, minlen=minlen)
+        test_data.print_data_info()
         n_uid, n_mid, n_cat = train_data.get_n()
         if model_type == 'DNN':
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
@@ -241,7 +243,9 @@ def test(conf, seed):
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, minlen=minlen)
+        train_data.print_data_info()
         test_data = DataIteratorV2(test_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, minlen=minlen)
+        test_data.print_data_info()
         n_uid, n_mid, n_cat = train_data.get_n()
         if model_type == 'DNN':
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
@@ -270,6 +274,7 @@ def test(conf, seed):
 
 if __name__ == '__main__':
     conf = config(sys.argv[2])
+    print("Model Config : {}".format(conf))
     SEED = conf['seed']
     tf.set_random_seed(SEED)
     numpy.random.seed(SEED)
