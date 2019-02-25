@@ -34,7 +34,7 @@ def load_voc(filename):
                         id = arr[k]
                     elif isinstance(arr[k],(int,long)):
                         index = arr[k]
-                if None is not in [id, index]:
+                if None not in [id, index]:
                     res_dict[id] = index
             return res_dict
     except Exception as e:
