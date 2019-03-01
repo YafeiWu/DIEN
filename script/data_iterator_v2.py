@@ -150,7 +150,6 @@ class DataIteratorV2:
             for k_ in xrange(self.k):
                 ss = self.source.readline()
                 if ss == "":
-                    self.end_of_data = True
                     break
                 self.source_buffer.append(ss.strip("\n").split("\t"))
             print("DEBUG source_buffer length #{}".format(len(self.source_buffer)))
@@ -174,14 +173,14 @@ class DataIteratorV2:
         try:
 
             # actual work here
-            while self.source_buffer:
+            while True:
 
                 # read from source file and map to word index
-                # try:
-                ss = self.source_buffer.pop()
-                # except IndexError as e:
-                #     print("STOP for IndexError # {} \t e: {}".format(ss, traceback.format_exc(e)))
-                #     break
+                try:
+                    ss = self.source_buffer.pop()
+                except IndexError as e:
+                    print("STOP for IndexError # {} \t e: {}".format(ss, traceback.format_exc(e)))
+                    break
 
                 uid = self.source_dicts[0][ss[1]] if ss[1] in self.source_dicts[0] else 0
                 mid = self.source_dicts[1][ss[2]] if ss[2] in self.source_dicts[1] else 0
