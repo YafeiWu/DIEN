@@ -38,6 +38,8 @@ def load_voc(filename):
                         print("Type Error # {}".format(type(arr[k])))
                 if None not in [id, index]:
                     res_dict[id] = index
+                if "DEFAULT" not in res_dict:
+                    res_dict['DEFAULT'] = 0
             return res_dict
     except Exception as e:
         print('ERROR {}'.format(traceback.format_exc(e)))
