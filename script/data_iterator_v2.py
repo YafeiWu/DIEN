@@ -150,6 +150,7 @@ class DataIteratorV2:
             for k_ in xrange(self.k):
                 ss = self.source.readline()
                 if ss == "":
+                    self.end_of_data = True
                     break
                 self.source_buffer.append(ss.strip("\n").split("\t"))
             print("DEBUG source_buffer length #{}".format(len(self.source_buffer)))
