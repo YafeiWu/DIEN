@@ -140,6 +140,7 @@ class DataIteratorV2:
         if self.end_of_data:
             self.end_of_data = False
             self.reset()
+            print("STOP for end_of_data # {}".format(self.end_of_data))
             raise StopIteration
 
         source = []
@@ -151,6 +152,7 @@ class DataIteratorV2:
                 if ss == "":
                     break
                 self.source_buffer.append(ss.strip("\n").split("\t"))
+            print("DEBUG source_buffer length #{}".format(len(self.source_buffer)))
 
             # sort by  history behavior length
             if self.sort_by_length:
@@ -165,18 +167,20 @@ class DataIteratorV2:
         if len(self.source_buffer) == 0:
             self.end_of_data = False
             self.reset()
+            print("STOP for source_buffer # {}".format(len(self.source_buffer)))
             raise StopIteration
 
         try:
 
             # actual work here
-            while True:
+            while self.source_buffer:
 
                 # read from source file and map to word index
-                try:
-                    ss = self.source_buffer.pop()
-                except IndexError:
-                    break
+                # try:
+                ss = self.source_buffer.pop()
+                # except IndexError as e:
+                #     print("STOP for IndexError # {} \t e: {}".format(ss, traceback.format_exc(e)))
+                #     break
 
                 uid = self.source_dicts[0][ss[1]] if ss[1] in self.source_dicts[0] else 0
                 mid = self.source_dicts[1][ss[2]] if ss[2] in self.source_dicts[1] else 0
@@ -223,7 +227,7 @@ class DataIteratorV2:
                     noclk_cat_list.append(noclk_tmp_cat)
                 source.append([uid, mid, cat, mid_list, cat_list, noclk_mid_list, noclk_cat_list])
                 target.append([float(ss[0]), 1-float(ss[0])])
-
+                print("DEBUG data_itertor source length #{}, target length #{}".format(len(source), len(target)))
                 if len(source) >= self.batch_size or len(target) >= self.batch_size:
                     break
         except IOError:
@@ -233,6 +237,7 @@ class DataIteratorV2:
         # all sentence pairs in maxibatch filtered out because of length
         if len(source) == 0 or len(target) == 0:
             source, target = self.next()
+        print("DEBUG data_itertor source length #{}, target length #{}".format(len(source), len(target)))
 
         return source, target
 
