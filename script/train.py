@@ -128,16 +128,10 @@ def train(conf,seed):
     maxlen = conf['maxlen']
     minlen  = conf['minlen']
     model_type = conf['model_type']
-    # train_file = "data/local_train"
-    # test_file = "data/local_test"
-    # uid_voc = "data/uid_voc.pkl"
-    # mid_voc = "data/mid_voc.pkl"
-    # cat_voc = "data/cat_voc.pkl"
-    # batch_size = 128
-    # maxlen = 100
-    # minlen = 1
-    # model_type = 'DNN'
-    # seed = 2
+    test_iter = conf['test_iter']
+    save_iter = conf['save_iter']
+    epochs = conf['epochs']
+
     model_path = "dnn_save_path/ckpt_noshuff" + model_type + str(seed)
     best_model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
     train_writer = tf.summary.FileWriter('dnn_logdir/train')
@@ -182,7 +176,7 @@ def train(conf,seed):
         start_time = time.time()
         iter = 0
         lr = 0.001
-        for epoch in range(3):
+        for epoch in range(epochs):
             start_one_epoch = time.time()
             loss_sum = 0.0
             accuracy_sum = 0.
@@ -210,7 +204,7 @@ def train(conf,seed):
                         print('save model iter: %d' %(iter))
                         model.save(sess, model_path+"--"+str(iter))
                 except Exception as e:
-                    print('Exception: {}, Stack: {}, \n Line: {}, {}'.format(e, traceback.format_exc(),  src, tgt))
+                    print('Exception: {}, Stack: {}'.format(e, traceback.format_exc()))
                     sys.exit()
             print('epoch {}. learning rate: {}. take time: {}'.format(epoch, lr, time.time()-start_one_epoch))
             lr *= 0.5
@@ -227,16 +221,6 @@ def test(conf, seed):
     maxlen = conf['maxlen']
     minlen  = conf['minlen']
     model_type = conf['model_type']
-    # train_file = "data/local_train"
-    # test_file = "data/local_test"
-    # uid_voc = "data/uid_voc.pkl"
-    # mid_voc = "data/mid_voc.pkl"
-    # cat_voc = "data/cat_voc.pkl"
-    # batch_size = 128
-    # maxlen = 100
-    # minlen = 1
-    # model_type = 'DNN'
-    # seed = 2
 
     model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
     gpu_options = tf.GPUOptions(allow_growth=True)

@@ -9,3 +9,5 @@ maxlen: 100
 minlen: 1
 model_type: 'DIEN'
 seed: 2
+test_iter: 10
+epochs: 2
