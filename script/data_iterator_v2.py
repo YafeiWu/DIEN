@@ -154,7 +154,7 @@ class DataIteratorV2:
                 if ss == "":
                     break
                 self.source_buffer.append(ss.strip("\n").split("\t"))
-            print("DEBUG source_buffer length #{}".format(len(self.source_buffer)))
+            print("DEBUG readline source_buffer length #{}".format(len(self.source_buffer)))
 
             # sort by  history behavior length
             if self.sort_by_length:
@@ -181,33 +181,35 @@ class DataIteratorV2:
                 try:
                     ss = self.source_buffer.pop()
                 except IndexError as e:
-                    print("STOP for IndexError # {} \t e: {}".format(ss, traceback.format_exc(e)))
                     break
-
                 uid = self.source_dicts[0][ss[1]] if ss[1] in self.source_dicts[0] else 0
                 mid = self.source_dicts[1][ss[2]] if ss[2] in self.source_dicts[1] else 0
                 cat = self.source_dicts[2][ss[3]] if ss[3] in self.source_dicts[2] else 0
                 tmp = []
-                for fea in ss[4].split(""):
+                for fea in ss[4].split(" "):
                     m = self.source_dicts[1][fea] if fea in self.source_dicts[1] else 0
                     tmp.append(m)
                 mid_list = tmp
-
-                tmp1 = []
-                for fea in ss[5].split(""):
-                    c = self.source_dicts[2][fea] if fea in self.source_dicts[2] else 0
-                    tmp1.append(c)
-                cat_list = tmp1
-
-                # read from source file and map to word index
-
-                #if len(mid_list) > self.maxlen:
-                #    continue
+                # if len(mid_list) > self.maxlen:
+                #     continue
                 if self.minlen != None:
                     if len(mid_list) <= self.minlen:
                         continue
                 if self.skip_empty and (not mid_list):
                     continue
+
+                # tmp1 = []
+                # for fea in ss[5].split(" "):
+                #     c = self.source_dicts[2][fea] if fea in self.source_dicts[2] else 0
+                #     tmp1.append(c)
+                # cat_list = tmp1
+                tmp1 = []
+                for mid in mid_list:
+                    c = self.meta_id_map[mid] if mid in self.meta_id_map else 0
+                    tmp1.append(c)
+                cat_list = tmp1
+
+                # read from source file and map to word index
 
                 noclk_mid_list = []
                 noclk_cat_list = []
@@ -229,7 +231,6 @@ class DataIteratorV2:
                     noclk_cat_list.append(noclk_tmp_cat)
                 source.append([uid, mid, cat, mid_list, cat_list, noclk_mid_list, noclk_cat_list])
                 target.append([float(ss[0]), 1-float(ss[0])])
-                print("DEBUG data_itertor source length #{}, target length #{}".format(len(source), len(target)))
                 if len(source) >= self.batch_size or len(target) >= self.batch_size:
                     break
         except IOError:

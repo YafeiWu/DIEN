@@ -81,9 +81,9 @@ def prepare_data(input, target, maxlen = None, return_neg = False):
     cats = numpy.array([inp[2] for inp in input])
 
     if return_neg:
-        print('DEBUG prepare_data: uids shape:{}, mids shape:{}, mid_his shape:{}, cat_his shape:{}, noclk_cat_his shape:{}'.format(
+        # print('DEBUG prepare_data: uids shape:{}, mids shape:{}, mid_his shape:{}, cat_his shape:{}, noclk_cat_his shape:{}'.format(
                                     uids.shape, mids.shape, mid_his.shape, cat_his.shape, noclk_cat_his.shape))
-        print('DEBUG prepare_data: lengths_x len: {}'.format(lengths_x))
+        # print('DEBUG prepare_data: lengths_x len: {}'.format(lengths_x))
         return uids, mids, cats, mid_his, cat_his, mid_mask, numpy.array(target), numpy.array(lengths_x), noclk_mid_his, noclk_cat_his
 
     else:
