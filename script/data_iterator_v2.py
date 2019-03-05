@@ -157,7 +157,7 @@ class DataIteratorV2:
 
             # sort by  history behavior length
             if self.sort_by_length:
-                his_length = numpy.array([len(s[4].split("")) for s in self.source_buffer])
+                his_length = numpy.array([len(s[4].split(",")) for s in self.source_buffer])
                 tidx = his_length.argsort()
 
                 _sbuf = [self.source_buffer[i] for i in tidx]
@@ -185,7 +185,7 @@ class DataIteratorV2:
                 mid = self.source_dicts[1][ss[2]] if ss[2] in self.source_dicts[1] else 0
                 cat = self.source_dicts[2][ss[3]] if ss[3] in self.source_dicts[2] else 0
                 tmp = []
-                for fea in ss[4].split(" "):
+                for fea in ss[4].split(","):
                     m = self.source_dicts[1][fea] if fea in self.source_dicts[1] else 0
                     tmp.append(m)
                 mid_list = tmp
@@ -198,7 +198,7 @@ class DataIteratorV2:
                     continue
 
                 # tmp1 = []
-                # for fea in ss[5].split(" "):
+                # for fea in ss[5].split(","):
                 #     c = self.source_dicts[2][fea] if fea in self.source_dicts[2] else 0
                 #     tmp1.append(c)
                 # cat_list = tmp1
