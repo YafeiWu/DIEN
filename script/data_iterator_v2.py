@@ -4,8 +4,9 @@ import cPickle as pkl
 import random
 import traceback
 import gzip
-
 import shuffle
+
+StrLen=4
 
 def unicode_to_utf8(d):
     return dict((key.encode("UTF-8"), value) for (key,value) in d.items())
@@ -147,17 +148,22 @@ class DataIteratorV2:
 
         source = []
         target = []
+        k_  = 0
 
         if len(self.source_buffer) == 0:
-            for k_ in xrange(self.k):
+            while k_ < self.k:
                 ss = self.source.readline()
                 if ss == "":
                     break
-                self.source_buffer.append(ss.strip("\n").split("\t"))
+                arr = ss.strip("\n").split("\t")
+                if len(arr) == StrLen:
+                    self.source_buffer.append(arr)
+                    k_ += 1
 
             # sort by  history behavior length
             if self.sort_by_length:
-                his_length = numpy.array([len(s[4].split(",")) for s in self.source_buffer])
+                his_length = numpy.array([len(s[StrLen-1].split(",")) for s in self.source_buffer])
+                print("DEBUG his_length {}".format(his_length.shape))
                 tidx = his_length.argsort()
 
                 _sbuf = [self.source_buffer[i] for i in tidx]
@@ -183,9 +189,9 @@ class DataIteratorV2:
                     break
                 uid = self.source_dicts[0][ss[1]] if ss[1] in self.source_dicts[0] else 0
                 mid = self.source_dicts[1][ss[2]] if ss[2] in self.source_dicts[1] else 0
-                cat = self.source_dicts[2][ss[3]] if ss[3] in self.source_dicts[2] else 0
+                cat = self.meta_id_map[mid] if mid in self.meta_id_map else 0
                 tmp = []
-                for fea in ss[4].split(","):
+                for fea in ss[3].split(","):
                     m = self.source_dicts[1][fea] if fea in self.source_dicts[1] else 0
                     tmp.append(m)
                 mid_list = tmp
@@ -197,11 +203,6 @@ class DataIteratorV2:
                 if self.skip_empty and (not mid_list):
                     continue
 
-                # tmp1 = []
-                # for fea in ss[5].split(","):
-                #     c = self.source_dicts[2][fea] if fea in self.source_dicts[2] else 0
-                #     tmp1.append(c)
-                # cat_list = tmp1
                 tmp1 = []
                 for mid in mid_list:
                     c = self.meta_id_map[mid] if mid in self.meta_id_map else 0
@@ -209,7 +210,6 @@ class DataIteratorV2:
                 cat_list = tmp1
 
                 # read from source file and map to word index
-
                 noclk_mid_list = []
                 noclk_cat_list = []
                 for pos_mid in mid_list:
