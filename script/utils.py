@@ -9,6 +9,7 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import variable_scope as vs
 #from keras import backend as K
 from tensorflow.python.keras import backend as K
+import logging
 
 class QAAttGRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078).
@@ -218,7 +219,7 @@ def cal_user_auc(sample):
     sample.sort(key=lambda x:(x[0], x[1]))
     pos_sum, pos_num, neg_num, nr = 0, 0, 0, 0
     user_num, sum_auc = 0, 0
-    last_uid = ""
+    last_uid = None
     for item in sample:
         user_id, score, label = item
         if user_id != last_uid:
@@ -226,7 +227,7 @@ def cal_user_auc(sample):
                 normal_user += 1
                 user_num += 1
                 sum_auc += (pos_sum - (pos_num + 1) * pos_num / 2.0) / (pos_num * neg_num)
-            elif len(last_uid) > 0:
+            elif last_uid:
                 exception_user += 1
             pos_sum, pos_num, neg_num, nr = 0, 0, 0, 0
             last_uid = user_id
@@ -240,7 +241,7 @@ def cal_user_auc(sample):
         normal_user += 1
         user_num += 1
         sum_auc += (pos_sum - (pos_num + 1) * pos_num / 2.0) / (pos_num * neg_num)
-    elif len(last_uid) > 0:
+    elif last_uid:
         exception_user += 1
     print "exception req %s, normal req %s, exception rate %s" % (exception_user, normal_user, 1.0 * exception_user / (exception_user + normal_user))
     logging.info("exception req {}, normal req {}, exception rate {}".format(exception_user, normal_user, 1.0 * exception_user / (exception_user + normal_user)))
