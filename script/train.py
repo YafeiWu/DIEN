@@ -105,9 +105,10 @@ def eval(sess, test_data, model, model_path):
         accuracy_sum += acc
         prob_1 = prob[:, 0].tolist()
         target_1 = target[:, 0].tolist()
-        for p ,t in zip(prob_1, target_1):
-            stored_arr.append([p, t])
-    test_auc = calc_auc(stored_arr)
+        for uid, p ,t in zip(uids, prob_1, target_1):
+            stored_arr.append([uid, p, t])
+    test_auc = cal_auc(stored_arr)
+    test_user_auc = cal_user_auc(stored_arr)
     accuracy_sum = accuracy_sum / nums
     loss_sum = loss_sum / nums
     aux_loss_sum / nums
@@ -115,7 +116,7 @@ def eval(sess, test_data, model, model_path):
     if best_auc < test_auc:
         best_auc = test_auc
         model.save(sess, model_path)
-    return test_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
+    return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
 def train(conf,seed):
     train_file = conf['train_file']
@@ -169,8 +170,8 @@ def train(conf,seed):
         sess.run(tf.local_variables_initializer())
         print("{} local_variables_initializer done".format(model_type))
         sys.stdout.flush()
-        test_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
-        print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
+        print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
         sys.stdout.flush()
 
         start_time = time.time()
@@ -194,8 +195,8 @@ def train(conf,seed):
                     if (iter % test_iter) == 0:
                         print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                               (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
-                        test_auc, test_loss, test_accuracy,  test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
-                        print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
+                        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
+                        print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
                         test_writer.add_summary(test_merged_summary, iter)
                         loss_sum = 0.0
                         accuracy_sum = 0.0
@@ -251,8 +252,8 @@ def test(conf, seed):
             print ("Invalid model_type : %s", model_type)
             return
         model.restore(sess, model_path)
-        test_auc, test_loss, test_accuracy,  test_aux_loss, test_merged_summary = eval(sess, test_data, model, model_path)
-        print('test_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_loss, test_accuracy, test_aux_loss))
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, model_path)
+        print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 
 if __name__ == '__main__':
     conf = config(sys.argv[2])

@@ -190,6 +190,62 @@ def calc_auc(raw_arr):
 
     return auc
 
+def cal_auc(sample):
+    """
+    :param sample: List([uid,prob,label])
+    :return: auc of all samples
+    """
+    sample.sort(key=lambda x:x[1])
+    pos_sum = 0
+    pos_num = 0
+    for i in range(0, len(sample)):
+        label = sample[i][2]
+        if label == 1:
+            pos_sum += i+1
+            pos_num += 1
+    neg_num = len(sample) - pos_num
+    if pos_num == 0 or neg_num == 0:
+        return 1.0
+    return (pos_sum - (pos_num + 1) * pos_num / 2.0) / (pos_num * neg_num)
+
+def cal_user_auc(sample):
+    """
+    :param sample: List([uid,prob,label])
+    :return: auc of all samples
+    """
+    exception_user = 0
+    normal_user = 0
+    sample.sort(key=lambda x:(x[0], x[1]))
+    pos_sum, pos_num, neg_num, nr = 0, 0, 0, 0
+    user_num, sum_auc = 0, 0
+    last_uid = ""
+    for item in sample:
+        user_id, score, label = item
+        if user_id != last_uid:
+            if pos_num > 0 and neg_num > 0:
+                normal_user += 1
+                user_num += 1
+                sum_auc += (pos_sum - (pos_num + 1) * pos_num / 2.0) / (pos_num * neg_num)
+            elif len(last_uid) > 0:
+                exception_user += 1
+            pos_sum, pos_num, neg_num, nr = 0, 0, 0, 0
+            last_uid = user_id
+        nr += 1
+        if label == 1:
+            pos_num += 1
+            pos_sum += nr
+        else:
+            neg_num += 1
+    if pos_num > 0 and neg_num > 0:
+        normal_user += 1
+        user_num += 1
+        sum_auc += (pos_sum - (pos_num + 1) * pos_num / 2.0) / (pos_num * neg_num)
+    elif len(last_uid) > 0:
+        exception_user += 1
+    print "exception req %s, normal req %s, exception rate %s" % (exception_user, normal_user, 1.0 * exception_user / (exception_user + normal_user))
+    logging.info("exception req {}, normal req {}, exception rate {}".format(exception_user, normal_user, 1.0 * exception_user / (exception_user + normal_user)))
+    return sum_auc / user_num
+
 def attention(query, facts, attention_size, mask, stag='null', mode='LIST', softmax_stag=1, time_major=False, return_alphas=False):
     if isinstance(facts, tuple):
         # In case of Bi-RNN, concatenate the forward and the backward RNN outputs.

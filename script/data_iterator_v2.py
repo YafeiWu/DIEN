@@ -154,7 +154,6 @@ class DataIteratorV2:
                 if ss == "":
                     break
                 self.source_buffer.append(ss.strip("\n").split("\t"))
-            print("DEBUG readline source_buffer length #{}".format(len(self.source_buffer)))
 
             # sort by  history behavior length
             if self.sort_by_length:
@@ -169,7 +168,7 @@ class DataIteratorV2:
         if len(self.source_buffer) == 0:
             self.end_of_data = False
             self.reset()
-            print("STOP for source_buffer # {}".format(len(self.source_buffer)))
+            print("STOP for end of data , last source_buffer length # {}".format(len(self.source_buffer)))
             raise StopIteration
 
         try:
@@ -240,7 +239,6 @@ class DataIteratorV2:
         # all sentence pairs in maxibatch filtered out because of length
         if len(source) == 0 or len(target) == 0:
             source, target = self.next()
-        print("DEBUG data_itertor source length #{}, target length #{}".format(len(source), len(target)))
 
         return source, target
 
