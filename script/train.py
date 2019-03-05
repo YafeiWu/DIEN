@@ -105,8 +105,9 @@ def eval(sess, test_data, model, model_path):
         accuracy_sum += acc
         prob_1 = prob[:, 0].tolist()
         target_1 = target[:, 0].tolist()
-        for uid, p ,t in zip(uids, prob_1, target_1):
-            stored_arr.append([uid, p, t])
+        uid_1 = uids[:, 0].tolist()
+        for u, p ,t in zip(uid_1, prob_1, target_1):
+            stored_arr.append([u, p, t])
     test_auc = cal_auc(stored_arr)
     test_user_auc = cal_user_auc(stored_arr)
     accuracy_sum = accuracy_sum / nums
