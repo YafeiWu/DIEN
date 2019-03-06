@@ -343,7 +343,7 @@ class Model_DIN_V2_Gru_Vec_attGru_Neg(Model):
         # RNN layer(-s)
         with tf.name_scope('rnn_1'):
             rnn_outputs, _ = dynamic_rnn(GRUCell(HIDDEN_SIZE), inputs=self.item_his_eb,
-                                         sequence_length=self.seq_len_ph, dtype=tf.float32,
+                                         sequence_length=self.seq_len_ph, dtype=tf.float32, parallel_iterations=256,
                                          scope="gru1")
             tf.summary.histogram('GRU_outputs', rnn_outputs)
 
@@ -361,7 +361,7 @@ class Model_DIN_V2_Gru_Vec_attGru_Neg(Model):
         with tf.name_scope('rnn_2'):
             rnn_outputs2, final_state2 = dynamic_rnn(VecAttGRUCell(HIDDEN_SIZE), inputs=rnn_outputs,
                                                      att_scores = tf.expand_dims(alphas, -1),
-                                                     sequence_length=self.seq_len_ph, dtype=tf.float32,
+                                                     sequence_length=self.seq_len_ph, dtype=tf.float32, parallel_iterations=256,
                                                      scope="gru2")
             tf.summary.histogram('GRU2_Final_State', final_state2)
 

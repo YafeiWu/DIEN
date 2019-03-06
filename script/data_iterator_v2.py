@@ -163,7 +163,6 @@ class DataIteratorV2:
             # sort by  history behavior length
             if self.sort_by_length:
                 his_length = numpy.array([len(s[StrLen-1].split(",")) for s in self.source_buffer])
-                print("DEBUG his_length {}".format(his_length.shape))
                 tidx = his_length.argsort()
 
                 _sbuf = [self.source_buffer[i] for i in tidx]
