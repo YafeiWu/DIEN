@@ -8,6 +8,7 @@ batch_size: 128
 maxlen: 100
 minlen: 1
 model_type: 'DIEN'
+enable_shuffle: True
 seed: 2
 test_iter: 10
 save_iter: 10
