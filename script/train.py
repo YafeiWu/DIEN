@@ -172,9 +172,9 @@ def train(conf,seed):
         sess.run(tf.local_variables_initializer())
         print("{} local_variables_initializer done".format(model_type))
         sys.stdout.flush()
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
-        print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
-        sys.stdout.flush()
+        # test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
+        # print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
+        # sys.stdout.flush()
 
         start_time = time.time()
         iter = 0
