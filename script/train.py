@@ -135,10 +135,10 @@ def train(conf,seed):
     epochs = conf['epochs']
     enable_shuffle = conf['enable_shuffle']
 
-    model_path = "dnn_save_path/ckpt_noshuff" + model_type + str(seed)
-    best_model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
-    train_writer = tf.summary.FileWriter('dnn_logdir/train')
-    test_writer = tf.summary.FileWriter('dnn_logdir/test')
+    model_path = conf['model_path'] + model_type + str(seed)
+    best_model_path = conf['best_model_path'] + model_type + str(seed)
+    train_writer = tf.summary.FileWriter("{}/train".format(conf['logdir/train']))
+    test_writer = tf.summary.FileWriter("{}/test".format(conf['logdir']))
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, minlen=minlen, shuffle_each_epoch=enable_shuffle)

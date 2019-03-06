@@ -13,3 +13,6 @@ seed: 2
 test_iter: 10
 save_iter: 10
 epochs: 2
+model_path: "output/dnn_save_path/ckpt_noshuff"
+best_model_path: "output/dnn_best_model/ckpt_noshuff"
+logdir: "output/dnn_logdir"
