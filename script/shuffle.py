@@ -1,13 +1,15 @@
 import os
 import sys
 import random
+import time
 
 import tempfile
 from subprocess import call
 
 
 def main(file, temporary=False):
-    tf_os, tpath = tempfile.mkstemp(dir='~/DIN-V2-CODE')
+    start_ = time.time()
+    tf_os, tpath = tempfile.mkstemp(dir='/tmp')
     tf = open(tpath, 'w')
 
     fd = open(file, "r")
@@ -33,6 +35,9 @@ def main(file, temporary=False):
         fd.close()
 
     os.remove(tpath)
+
+    time_used = time.time() - start_
+    print("shuffle time used : {} \t file name : {}".format(time_used, file))
 
     return fd
 

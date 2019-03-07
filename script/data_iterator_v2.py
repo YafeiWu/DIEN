@@ -69,6 +69,7 @@ class DataIteratorV2:
         if shuffle_each_epoch:
             self.source_orig = source
             self.source = shuffle.main(self.source_orig, temporary=True)
+            print("source shulled")
         else:
             self.source = fopen(source, 'r')
         self.source_dicts = []
