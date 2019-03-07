@@ -10,8 +10,8 @@ minlen: 1
 model_type: 'DIEN'
 enable_shuffle: False
 seed: 2
-test_iter: 10
-save_iter: 10
+test_iter: 100
+save_iter: 100
 epochs: 2
 model_path: "output/dnn_save_path/ckpt_noshuff"
 best_model_path: "output/dnn_best_model/ckpt_noshuff"
