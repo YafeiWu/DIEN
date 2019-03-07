@@ -89,7 +89,7 @@ def prepare_data(input, target, maxlen = None, return_neg = False):
     else:
         return uids, mids, cats, mid_his, cat_his, mid_mask, numpy.array(target), numpy.array(lengths_x)
 
-def eval(sess, test_data, model, model_path):
+def eval(sess, test_data, model, model_path, iter=None):
 
     loss_sum = 0.
     accuracy_sum = 0.
@@ -114,9 +114,9 @@ def eval(sess, test_data, model, model_path):
     loss_sum = loss_sum / nums
     aux_loss_sum / nums
     global best_auc
-    if best_auc < test_auc:
+    if best_auc < test_auc and iter is not None:
         best_auc = test_auc
-        model.save(sess, model_path)
+        model.save(sess, model_path+"--"+str(iter))
     return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
 def train(conf,seed):
@@ -197,15 +197,15 @@ def train(conf,seed):
                     if (iter % test_iter) == 0:
                         print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                               (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
-                        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path)
+                        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, test_data, model, best_model_path, iter)
                         print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'.format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
                         test_writer.add_summary(test_merged_summary, iter)
                         loss_sum = 0.0
                         accuracy_sum = 0.0
                         aux_loss_sum = 0.0
-                    if (iter % save_iter) == 0:
-                        print('save model iter: %d' %(iter))
-                        model.save(sess, model_path+"--"+str(iter))
+                    # if (iter % save_iter) == 0:
+                    #     print('save model iter: %d' %(iter))
+                    #     model.save(sess, model_path+"--"+str(iter))
                 except Exception as e:
                     print('Exception: {}, Stack: {}'.format(e, traceback.format_exc()))
                     sys.exit()
@@ -226,7 +226,7 @@ def test(conf, seed):
     model_type = conf['model_type']
     enable_shuffle = conf['enable_shuffle']
 
-    model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
+    model_path = "dnn_best_model/ckpt" + model_type + str(seed)
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIteratorV2(train_file, uid_voc, mid_voc, cat_voc, item_info, batch_size, maxlen, minlen=minlen, shuffle_each_epoch=False)
