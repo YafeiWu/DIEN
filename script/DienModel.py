@@ -16,38 +16,18 @@ def base64_to_int(base64string):
 
 class BaseModel(object):
     def __init__(self, conf):
-        self.init_config(conf)
-        self.build_embedding()
-
-    def init_config(self, conf):
         self.n_uid = conf['n_uid']
         self.n_mid = conf['n_mid']
         self.n_cat = conf['n_cat']
         self.uid_embedding_dim = conf['uid_embedding_dim']
         self.mid_embedding_dim = conf['mid_embedding_dim']
         self.cat_embedding_dim = conf['cat_embedding_dim']
-        self.use_negsampling = conf['use_negsampling']
         self.training_data = conf['training_files']
         self.test_data = conf['test_files']
         self.batch_size = conf['batch_size']
         self.epochs = conf['epochs']
         self.maxLen = conf['max_length']
 
-    def prepare_from_base64(self, files, for_training=False):
-        dataset = tf.data.TextLineDataset(files, compression_type="GZIP")
-        dataset = dataset.shuffle(buffer_size=self.batch_size * 500)
-        if for_training:
-            dataset = dataset.repeat(self.epochs)
-        else:
-            dataset = dataset.repeat()
-        dataset = dataset.map(lambda x: base64_to_int(x), num_parallel_calls=56)
-        dataset = dataset.batch(self.batch_size)
-        dataset = dataset.prefetch(1)
-        batches = dataset.make_one_shot_iterator()
-        return batches.get_next()
-
-
-    def build_embedding(self):
         with tf.name_scope('Inputs'):
             self.for_training = tf.placeholder_with_default(tf.constant(False),shape=(),name="training_flag")
             self.lr = tf.placeholder(tf.float64, [],name="learning_rate")
@@ -100,6 +80,20 @@ class BaseModel(object):
                 self.noclk_his_eb = tf.concat([self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], -1)
                 self.noclk_his_eb_sum_1 = tf.reduce_sum(self.noclk_his_eb, 2)
                 self.noclk_his_eb_sum = tf.reduce_sum(self.noclk_his_eb_sum_1, 1)
+
+    def prepare_from_base64(self, files, for_training=False):
+        dataset = tf.data.TextLineDataset(files, compression_type="GZIP")
+        dataset = dataset.shuffle(buffer_size=self.batch_size * 500)
+        if for_training:
+            dataset = dataset.repeat(self.epochs)
+        else:
+            dataset = dataset.repeat()
+        dataset = dataset.map(lambda x: base64_to_int(x), num_parallel_calls=56)
+        dataset = dataset.batch(self.batch_size)
+        dataset = dataset.prefetch(1)
+        batches = dataset.make_one_shot_iterator()
+        return batches.get_next()
+
 
     def build_fcn_net(self, inp, use_dice = False):
         bn1 = tf.layers.batch_normalization(inputs=inp, name='bn1')
@@ -162,11 +156,11 @@ class BaseModel(object):
 
 
     def calculate(self, sess, inps):
-        probs, loss, accuracy, aux_loss, merged = sess.run([self.y_hat, self.loss, self.accuracy, self.aux_loss, self.merged], feed_dict={
+        probs, targets, uids, loss, accuracy, aux_loss, merged = sess.run([self.y_hat, self.target_ph, self.uid_batch_ph, self.loss, self.accuracy, self.aux_loss, self.merged], feed_dict={
             self.for_training: inps[0],
             self.lr: inps[1]
         }
-        return probs, loss, accuracy, aux_loss, merged
+        return probs, targets, uids, loss, accuracy, aux_loss, merged
 
 
     def save(self, sess, path):

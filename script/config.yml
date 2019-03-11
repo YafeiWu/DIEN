@@ -4,7 +4,10 @@ uid_voc: "data/uid_voc.json"
 mid_voc: "data/item_voc.json"
 cat_voc: "data/cate_voc.json"
 item_info: "data/item_info.json"
-batch_size: 128
+uid_embedding_dim: 128
+mid_embedding_dim: 64
+cat_embedding_dim: 16
+batch_size: 512
 maxlen: 100
 minlen: 1
 model_type: 'DIEN'
@@ -13,6 +16,7 @@ seed: 2
 test_iter: 100
 save_iter: 100
 epochs: 2
-model_path: "output/dnn_save_path/ckpt_noshuff"
-best_model_path: "output/dnn_best_model/ckpt_noshuff"
-logdir: "output/dnn_logdir"
+model_path: "output_{}/dnn_save_path/ckpt"
+best_model_path: "output_{}/dnn_best_model/ckpt"
+logdir: "output_{}/dnn_logdir"
+max_steps: 1000

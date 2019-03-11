@@ -10,6 +10,7 @@ from tensorflow.python.ops import variable_scope as vs
 #from keras import backend as K
 from tensorflow.python.keras import backend as K
 import logging
+import traceback
 
 class QAAttGRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078).
@@ -145,6 +146,32 @@ class VecAttGRUCell(RNNCell):
     u = (1.0 - att_score) * u
     new_h = u * state + (1 - u) * c
     return new_h, new_h
+
+def load_voc(filename):
+    try:
+        with open(filename, 'rb') as f:
+            lines = f.readlines()
+            res_dict = {}
+            keys = []
+            id,index =None,None
+            for line in lines:
+                arr = json.loads(line.strip())
+                if not keys:
+                    keys = arr.keys()
+                for k in keys:
+                    if isinstance(arr[k],(str,unicode)):
+                        id = arr[k]
+                    elif isinstance(arr[k],(int,long)):
+                        index = arr[k]
+                    else:
+                        print("Type Error # {}".format(type(arr[k])))
+                if None not in [id, index]:
+                    res_dict[id] = index
+                if "DEFAULT" not in res_dict:
+                    res_dict['DEFAULT'] = 0
+            return res_dict
+    except Exception as e:
+        print('ERROR {}'.format(traceback.format_exc(e)))
 
 def prelu(_x, scope=''):
     """parametric ReLU activation"""
