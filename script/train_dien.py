@@ -66,7 +66,6 @@ def eval(sess, model, best_model_path, iter=None):
     return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
 def train(conf, seed):
-    best_model_path = conf['best_model_path'] + str(seed)
     train_writer = tf.summary.FileWriter("{}/train".format(conf['logdir']))
     test_writer = tf.summary.FileWriter("{}/test".format(conf['logdir']))
     gpu_options = tf.GPUOptions(allow_growth=True)
@@ -121,7 +120,7 @@ if __name__ == '__main__':
     if sys.argv[1] == 'train':
         train(conf, seed=SEED)
     elif sys.argv[1] == 'test':
-        test(conf, seed=SEED)
+        pass
     else:
         print('do nothing...')
 
