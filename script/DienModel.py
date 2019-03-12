@@ -30,7 +30,8 @@ class BaseModel(object):
         self.epochs = conf['epochs']
         self.maxLen = conf['maxlen']
         self.use_negsampling = True
-        self.feats_dim = np.ones(self.batch_size, dtype=np.int32) *conf['feats_dim']
+        self.feats_dim = conf['feats_dim']
+        self.feats_dim_ph = np.ones(self.batch_size, dtype=np.int32) *conf['feats_dim']
 
         with tf.name_scope('Inputs'):
             self.for_training = tf.placeholder_with_default(tf.constant(False),shape=(),name="training_flag")
@@ -46,8 +47,8 @@ class BaseModel(object):
             self.noclk_mid_batch_ph = feats_batches[:,4]
             self.noclk_cat_batch_ph = feats_batches[:,5]
             self.seq_len_ph = feats_batches[:,6]
-            self.mid_his_batch_ph = feats_batches[:, self.feats_dim-2*self.seq_len_ph :self.feats_dim-self.seq_len_ph]
-            self.cat_his_batch_ph = feats_batches[:, self.feats_dim-self.seq_len_ph :self.feats_dim]
+            self.mid_his_batch_ph = feats_batches[:, self.feats_dim-2*self.maxLen :self.feats_dim[:]-self.maxLen]
+            self.cat_his_batch_ph = feats_batches[:, self.feats_dim[:]-self.maxLen :self.feats_dim]
             self.mask = np.ones((self.batch_size, self.maxLen), dtype=np.int32)
 
 

@@ -1,5 +1,5 @@
-train_file: "data/train_splitByUser"
-test_file: "data/test_splitByUser"
+train_file: "data/train_splitByUser/*.gz"
+test_file: "data/test_splitByUser/*.gz"
 uid_voc: "data/uid_voc.json"
 mid_voc: "data/item_voc.json"
 cat_voc: "data/cate_voc.json"
