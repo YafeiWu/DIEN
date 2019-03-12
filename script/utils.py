@@ -11,6 +11,7 @@ from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.keras import backend as K
 import logging
 import traceback
+import json
 
 class QAAttGRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078).

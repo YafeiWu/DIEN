@@ -66,6 +66,7 @@ def eval(sess, model, best_model_path, iter=None):
     return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
 def train(conf, seed):
+    best_model_path = conf['best_model_path'] + str(seed)
     train_writer = tf.summary.FileWriter("{}/train".format(conf['logdir']))
     test_writer = tf.summary.FileWriter("{}/test".format(conf['logdir']))
     gpu_options = tf.GPUOptions(allow_growth=True)
@@ -93,7 +94,7 @@ def train(conf, seed):
                 if (iter % conf['test_iter']) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                           (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
-                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, conf['best_model_path'], iter)
+                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, iter)
                     test_writer.add_summary(test_merged_summary, iter)
                     print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
                           .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
