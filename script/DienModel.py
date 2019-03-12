@@ -47,8 +47,8 @@ class BaseModel(object):
             self.noclk_mid_batch_ph = feats_batches[:,4]
             self.noclk_cat_batch_ph = feats_batches[:,5]
             self.seq_len_ph = feats_batches[:,6]
-            self.mid_his_batch_ph = feats_batches[:, self.feats_dim-2*self.maxLen :self.feats_dim[:]-self.maxLen]
-            self.cat_his_batch_ph = feats_batches[:, self.feats_dim[:]-self.maxLen :self.feats_dim]
+            self.mid_his_batch_ph = feats_batches[:, self.feats_dim-2*self.maxLen :self.feats_dim-self.maxLen]
+            self.cat_his_batch_ph = feats_batches[:, self.feats_dim-self.maxLen :self.feats_dim]
             self.mask = np.ones((self.batch_size, self.maxLen), dtype=np.int32)
 
 
@@ -85,8 +85,8 @@ class BaseModel(object):
                 # self.noclk_his_eb_sum_1 = tf.reduce_sum(self.noclk_his_eb, 2)
                 # self.noclk_his_eb_sum = tf.reduce_sum(self.noclk_his_eb_sum_1, 1)
 
-    def prepare_from_base64(self, files, for_training=False):
-        dataset = tf.data.TextLineDataset(files, compression_type="GZIP")
+    def prepare_from_base64(self, file, for_training=False):
+        dataset = tf.data.TextLineDataset(file)
         dataset = dataset.shuffle(buffer_size=self.batch_size * 500)
         dataset = dataset.repeat(self.epochs) if for_training else dataset.repeat()
         dataset = dataset.map(lambda x: base64_to_int32(x), num_parallel_calls=56)

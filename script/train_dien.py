@@ -1,5 +1,4 @@
 import numpy
-from data_source import DataSource
 import tensorflow as tf
 from DienModel import *
 import time
