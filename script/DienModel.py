@@ -30,10 +30,10 @@ class BaseModel(object):
         self.epochs = conf['epochs']
         self.maxLen = conf['maxlen']
         self.negSeqLen = conf['negseq_length']
+        self.enable_shuffle = conf['enable_shuffle']
+        self.feats_dim = conf['feats_dim']
         self.negStartIdx = 6+2*self.maxLen+1 #207
         self.use_negsampling = True
-        self.feats_dim = conf['feats_dim']
-        self.feats_dim_ph = np.ones(self.batch_size, dtype=np.int32) *conf['feats_dim']
 
         with tf.name_scope('Inputs'):
             self.for_training = tf.placeholder_with_default(tf.constant(False),shape=(),name="training_flag")
@@ -59,9 +59,8 @@ class BaseModel(object):
             self.noclk_cat_batch_ph = tf.expand_dims(feats_batches[:, self.negStartIdx+self.negSeqLen : self.negStartIdx+2*self.negSeqLen], 1)
             self.noclk_cat_batch_ph = tf.tile(self.noclk_cat_batch_ph, multiples=[1, self.maxLen, 1])
 
-            self.mask = np.ones((self.batch_size, self.maxLen), dtype=np.float32)
-            # self.mask = tf.map_fn(lambda x: (np.ones(x[1][0],dtype=np.float32) +x[0])[0:self.maxLen], (self.mask, self.seq_len_ph), dtype=(np.float32, np.float32))
-
+            init_mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
+            self.mask = tf.sequence_mask(self.seq_len_ph, init_mask.shape[1], dtype=tf.float32)
 
         # Embedding layer
         with tf.name_scope('Embedding_layer'):
@@ -98,7 +97,8 @@ class BaseModel(object):
 
     def prepare_from_base64(self, file, for_training=False):
         dataset = tf.data.TextLineDataset(file)
-        dataset = dataset.shuffle(buffer_size=self.batch_size * 500)
+        if self.enable_shuffle:
+            dataset = dataset.shuffle(buffer_size=self.batch_size * 500)
         dataset = dataset.repeat(self.epochs) if for_training else dataset.repeat()
         dataset = dataset.map(lambda x: base64_to_int32(x), num_parallel_calls=56)
         dataset = dataset.batch(self.batch_size)

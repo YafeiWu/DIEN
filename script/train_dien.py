@@ -28,7 +28,7 @@ def config(confpath, date=None):
     return paras
 
 
-def eval(sess, model, best_model_path, iter=None, test_batches=5):
+def eval(sess, model, best_model_path, iter=None, test_batches=3):
     loss_sum = 0.
     accuracy_sum = 0.
     aux_loss_sum = 0.
@@ -78,20 +78,13 @@ def train(conf, seed):
             accuracy_sum = 0.
             aux_loss_sum = 0.
             try:
-                # if iter>300:
-                #     break
-                # seq_len_ph, mask = sess.run([model.seq_len_ph, model.mask], feed_dict={model.for_training:True, model.lr:lr})
-                # print("DEBUG seq_len_ph shape : {} \tseq_len_ph :{}".format(seq_len_ph.shape, seq_len_ph))
-                # print("DEBUG mask shape : {} \tmask :{}".format(mask.shape, mask))
-                # continue
                 loss, acc, aux_loss, train_merged_summary = model.train(sess, [True, lr])
                 loss_sum += loss
                 accuracy_sum += acc
                 aux_loss_sum += aux_loss
                 train_writer.add_summary(train_merged_summary, iter)
 
-                # if (iter % conf['test_iter']) == 0:
-                if True:
+                if (iter % conf['test_iter']) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                           (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
                     sys.stdout.flush()
@@ -110,7 +103,7 @@ def train(conf, seed):
                 print("End of dataset")  # ==> "End of dataset"
                 sys.exit()
 
-        print('training done. take time:{}'.format(time.time()-start_time))
+        print('Training done. Take time:{}'.format(time.time()-start_time))
 
 if __name__ == '__main__':
     conf = config(sys.argv[2])
