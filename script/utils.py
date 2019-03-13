@@ -155,20 +155,23 @@ def load_voc(filename):
             res_dict = {}
             keys = []
             id,index =None,None
+            has_default = False
             for line in lines:
                 arr = json.loads(line.strip())
                 if not keys:
                     keys = arr.keys()
                 for k in keys:
                     if isinstance(arr[k],(str,unicode)):
-                        id = arr[k]
+                        id = arr[k].encode("UTF-8")
                     elif isinstance(arr[k],(int,long)):
                         index = arr[k]
                     else:
                         print("Type Error # {}".format(type(arr[k])))
                 if None not in [id, index]:
                     res_dict[id] = index
-                if "DEFAULT" not in res_dict:
+                    if index == 0:
+                        has_default = True
+                if "DEFAULT" not in res_dict and not has_default:
                     res_dict['DEFAULT'] = 0
             return res_dict
     except Exception as e:
