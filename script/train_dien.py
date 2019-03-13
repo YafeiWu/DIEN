@@ -8,9 +8,6 @@ import traceback
 from utils import *
 import yaml
 
-EMBEDDING_DIM = 18
-HIDDEN_SIZE = 18 * 2
-ATTENTION_SIZE = 18 * 2
 best_auc = 0.
 
 def config(confpath, date=None):
@@ -31,27 +28,24 @@ def config(confpath, date=None):
     return paras
 
 
-def eval(sess, model, best_model_path, iter=None):
+def eval(sess, model, best_model_path, iter=None, test_batches=5):
     loss_sum = 0.
     accuracy_sum = 0.
     aux_loss_sum = 0.
     nums = 1
     stored_arr = []
-    while True:
-        try:
+    for i in range(test_batches):
+        prob, target, uids, loss, acc, aux_loss, merged = model.calculate(sess, [False, 0.0])
+        loss_sum += loss
+        aux_loss_sum = aux_loss
+        accuracy_sum += acc
+        prob_1 = prob[:, 0].tolist()
+        target_1 = target[:, 0].tolist()
+        uid_1 = uids.tolist()
+        for u, p ,t in zip(uid_1, prob_1, target_1):
+            stored_arr.append([u, p, t])
+        nums += 1
 
-            prob, target, uids, loss, acc, aux_loss, merged = model.calculate(sess, [False, 0.0])
-            loss_sum += loss
-            aux_loss_sum = aux_loss
-            accuracy_sum += acc
-            prob_1 = prob[:, 0].tolist()
-            target_1 = target[:, 0].tolist()
-            uid_1 = uids.tolist()
-            for u, p ,t in zip(uid_1, prob_1, target_1):
-                stored_arr.append([u, p, t])
-            nums += 1
-        except tf.errors.OutOfRangeError:
-            print("End of dataset")  # ==> "End of dataset"
 
     test_auc = cal_auc(stored_arr)
     test_user_auc = cal_user_auc(stored_arr)
@@ -79,20 +73,28 @@ def train(conf, seed):
         start_time = time.time()
         lr = 0.001
         start_ = time.time()
-        for iter in range(conf['max_steps']):
+        for iter in range(1,conf['max_steps']):
             loss_sum = 0.0
             accuracy_sum = 0.
             aux_loss_sum = 0.
             try:
+                # if iter>300:
+                #     break
+                # seq_len_ph, mask = sess.run([model.seq_len_ph, model.mask], feed_dict={model.for_training:True, model.lr:lr})
+                # print("DEBUG seq_len_ph shape : {} \tseq_len_ph :{}".format(seq_len_ph.shape, seq_len_ph))
+                # print("DEBUG mask shape : {} \tmask :{}".format(mask.shape, mask))
+                # continue
                 loss, acc, aux_loss, train_merged_summary = model.train(sess, [True, lr])
                 loss_sum += loss
                 accuracy_sum += acc
                 aux_loss_sum += aux_loss
                 train_writer.add_summary(train_merged_summary, iter)
 
-                if (iter % conf['test_iter']) == 0:
+                # if (iter % conf['test_iter']) == 0:
+                if True:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                           (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
+                    sys.stdout.flush()
                     test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, iter)
                     test_writer.add_summary(test_merged_summary, iter)
                     print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
@@ -104,8 +106,8 @@ def train(conf, seed):
                 if (iter % 10000) == 0:
                     lr *= 0.5
 
-            except Exception as e:
-                print('Exception: {}, Stack: {}'.format(e, traceback.format_exc()))
+            except IOError:
+                print("End of dataset")  # ==> "End of dataset"
                 sys.exit()
 
         print('training done. take time:{}'.format(time.time()-start_time))
