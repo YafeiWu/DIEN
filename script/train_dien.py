@@ -56,7 +56,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
         files_ = os.listdir(save_dir)
         for file_ in files_:
             if file_.startswith(prefix):
-                os.remove(file_)
+                os.remove(os.path.join(save_dir,file_))
 
         best_auc = test_auc
         model.save(sess, best_model_path+"--"+str(iter))
