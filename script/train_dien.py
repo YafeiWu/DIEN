@@ -28,11 +28,11 @@ def config(confpath, date=None):
     return paras
 
 
-def eval(sess, model, best_model_path, iter=None, test_batches=3):
+def eval(sess, model, best_model_path, iter=None, test_batches=2):
     loss_sum = 0.
     accuracy_sum = 0.
     aux_loss_sum = 0.
-    nums = 1
+    nums = 0
     stored_arr = []
     for i in range(test_batches):
         prob, target, uids, loss, acc, aux_loss, merged = model.calculate(sess, [False, 0.0])
@@ -82,14 +82,16 @@ def train(conf, seed):
                 loss_sum += loss
                 accuracy_sum += acc
                 aux_loss_sum += aux_loss
+                test_merged_summary = sess.run([model.merged], feed_dict={model.for_training:False,model.lr:lr})
                 train_writer.add_summary(train_merged_summary, iter)
+                test_writer.add_summary(test_merged_summary, iter)
 
                 if (iter % conf['test_iter']) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                           (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
                     sys.stdout.flush()
                     test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, iter)
-                    test_writer.add_summary(test_merged_summary, iter)
+                    # test_writer.add_summary(test_merged_summary, iter)
                     print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
                           .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 

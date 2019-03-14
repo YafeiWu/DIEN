@@ -6,10 +6,10 @@ cat_voc: "data/cate_voc.json"
 item_info: "data/item_info.json"
 uid_embedding_dim: 128
 mid_embedding_dim: 64
-cat_embedding_dim: 16
+cat_embedding_dim: 8
 hidden_size: 64
 attention_size: 64
-batch_size: 512
+batch_size: 1024
 maxlen: 100
 minlen: 1
 feats_dim: 217
