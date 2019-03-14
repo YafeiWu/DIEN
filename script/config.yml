@@ -24,3 +24,4 @@ model_path: "output/dnn_save_path/ckpt"
 best_model_path: "output/dnn_best_model/ckpt"
 logdir: "output/dnn_logdir"
 max_steps: 1000
+lr_decay_steps: 500

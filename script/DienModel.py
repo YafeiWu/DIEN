@@ -97,10 +97,10 @@ class BaseModel(object):
 
     def prepare_from_base64(self, file, for_training=False):
         dataset = tf.data.TextLineDataset(file)
-        if self.enable_shuffle:
+        if self.enable_shuffle and self.for_training:
             dataset = dataset.shuffle(buffer_size=self.batch_size * 500)
         dataset = dataset.repeat(self.epochs) if for_training else dataset.repeat()
-        dataset = dataset.map(lambda x: base64_to_int32(x), num_parallel_calls=56)
+        dataset = dataset.map(lambda x: base64_to_int32(x), num_parallel_calls=64)
         dataset = dataset.batch(self.batch_size)
         dataset = dataset.prefetch(1)
         batches = dataset.make_one_shot_iterator()
@@ -166,6 +166,12 @@ class BaseModel(object):
         })
         return loss, accuracy, aux_loss, merged
 
+    def test(self, sess, inps):
+        loss, accuracy, aux_loss, merged = sess.run([self.loss, self.accuracy, self.aux_loss, self.merged], feed_dict={
+            self.for_training: inps[0],
+            self.lr: inps[1]
+        })
+        return loss, accuracy, aux_loss, merged
 
     def calculate(self, sess, inps):
         probs, targets, uids, loss, accuracy, aux_loss, merged = sess.run([self.y_hat, self.target_ph, self.uid_batch_ph, self.loss, self.accuracy, self.aux_loss, self.merged], feed_dict={
@@ -193,7 +199,7 @@ class DIENModel(BaseModel):
         # RNN layer(-s)
         with tf.name_scope('rnn_1'):
             rnn_outputs, _ = dynamic_rnn(GRUCell(self.hidden_size), inputs=self.item_his_eb,
-                                         sequence_length=self.seq_len_ph, dtype=tf.float32, parallel_iterations=256,
+                                         sequence_length=self.seq_len_ph, dtype=tf.float32, parallel_iterations=512,
                                          scope="gru1")
             tf.summary.histogram('GRU_outputs', rnn_outputs)
 
@@ -211,7 +217,7 @@ class DIENModel(BaseModel):
         with tf.name_scope('rnn_2'):
             rnn_outputs2, final_state2 = dynamic_rnn(VecAttGRUCell(self.hidden_size), inputs=rnn_outputs,
                                                      att_scores = tf.expand_dims(alphas, -1),
-                                                     sequence_length=self.seq_len_ph, dtype=tf.float32, parallel_iterations=256,
+                                                     sequence_length=self.seq_len_ph, dtype=tf.float32, parallel_iterations=512,
                                                      scope="gru2")
             tf.summary.histogram('GRU2_Final_State', final_state2)
 

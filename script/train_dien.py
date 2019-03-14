@@ -28,23 +28,24 @@ def config(confpath, date=None):
     return paras
 
 
-def eval(sess, model, best_model_path, iter=None, test_batches=2):
+def eval(sess, model, best_model_path, iter=None, test_batches=1):
     loss_sum = 0.
     accuracy_sum = 0.
     aux_loss_sum = 0.
-    nums = 0
     stored_arr = []
-    for i in range(test_batches):
-        prob, target, uids, loss, acc, aux_loss, merged = model.calculate(sess, [False, 0.0])
-        loss_sum += loss
-        aux_loss_sum = aux_loss
-        accuracy_sum += acc
-        prob_1 = prob[:, 0].tolist()
-        target_1 = target[:, 0].tolist()
-        uid_1 = uids.tolist()
-        for u, p ,t in zip(uid_1, prob_1, target_1):
-            stored_arr.append([u, p, t])
-        nums += 1
+    for nums in range(test_batches):
+        try:
+            prob, target, uids, loss, acc, aux_loss, merged = model.calculate(sess, [False, 0.0])
+            loss_sum += loss
+            aux_loss_sum = aux_loss
+            accuracy_sum += acc
+            prob_1 = prob[:, 0].tolist()
+            target_1 = target[:, 0].tolist()
+            uid_1 = uids.tolist()
+            for u, p ,t in zip(uid_1, prob_1, target_1):
+                stored_arr.append([u, p, t])
+        except IOError:
+            print("End of dataset")  # ==> "End of dataset"
 
 
     test_auc = cal_auc(stored_arr)
@@ -68,6 +69,10 @@ def train(conf, seed):
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         print("local_variables_initializer done")
+
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, iter=None, test_batches=10)
+        print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
+              .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
         sys.stdout.flush()
 
         start_time = time.time()
@@ -82,23 +87,23 @@ def train(conf, seed):
                 loss_sum += loss
                 accuracy_sum += acc
                 aux_loss_sum += aux_loss
-                test_merged_summary = sess.run([model.merged], feed_dict={model.for_training:False,model.lr:lr})
                 train_writer.add_summary(train_merged_summary, iter)
+
+                test_loss, test_accuracy, test_aux_loss, test_merged_summary = model.test(sess, [False, lr])
                 test_writer.add_summary(test_merged_summary, iter)
 
                 if (iter % conf['test_iter']) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                           (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
                     sys.stdout.flush()
-                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, iter)
-                    # test_writer.add_summary(test_merged_summary, iter)
+                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter, test_batches=10)
                     print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
                           .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 
-                    print('iter {}. learning rate: {}. take time: {}'.format(iter, lr, time.time()- start_))
+                    print('iter {}. learning rate: {}. {} iters take time: {}'.format(iter, lr, conf['test_iter'], time.time()- start_))
                     sys.stdout.flush()
                     start_ = time.time()
-                if (iter % 10000) == 0:
+                if (iter % conf['lr_decay_steps']) == 0:
                     lr *= 0.5
 
             except IOError:
@@ -106,6 +111,17 @@ def train(conf, seed):
                 sys.exit()
 
         print('Training done. Take time:{}'.format(time.time()-start_time))
+
+def test(conf, seed):
+    best_model_path = conf['best_model_path'] + str(seed)
+    gpu_options = tf.GPUOptions(allow_growth=True)
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+        model = DIENModel(conf)
+        model.restore(sess, best_model_path)
+        #### test_batches=10000 test for all, get per_user_auc
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 10000)
+        print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
+              .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 
 if __name__ == '__main__':
     conf = config(sys.argv[2])
@@ -117,7 +133,7 @@ if __name__ == '__main__':
     if sys.argv[1] == 'train':
         train(conf, seed=SEED)
     elif sys.argv[1] == 'test':
-        pass
+        test(conf, seed=SEED)
     else:
         print('do nothing...')
 
