@@ -97,7 +97,7 @@ class BaseModel(object):
 
     def prepare_from_base64(self, file, for_training=False):
         dataset = tf.data.TextLineDataset(file)
-        if self.enable_shuffle and self.for_training:
+        if self.enable_shuffle and for_training:
             dataset = dataset.shuffle(buffer_size=self.batch_size * 500)
         dataset = dataset.repeat(self.epochs) if for_training else dataset.repeat()
         dataset = dataset.map(lambda x: base64_to_int32(x), num_parallel_calls=64)
