@@ -16,10 +16,6 @@ def config(confpath, date=None):
         content = f.read()
     paras = yaml.load(content)
 
-    date = "base" if date is None else date
-    paras['model_path'] = paras['model_path'].format(date)
-    paras['best_model_path'] = paras['best_model_path'].format(date)
-
     source_dicts = []
     for source_dict in [paras['uid_voc'], paras['mid_voc'], paras['cat_voc']]:
         source_dicts.append(load_voc(source_dict))
