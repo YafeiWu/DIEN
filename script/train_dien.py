@@ -61,7 +61,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
         for file_ in files_:
             if file_.startswith(prefix):
                 os.remove(file_)
-                
+
         best_auc = test_auc
         model.save(sess, best_model_path+"--"+str(iter))
     return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
