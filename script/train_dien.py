@@ -7,6 +7,7 @@ import sys
 import traceback
 from utils import *
 import yaml
+import os
 
 best_auc = 0.
 
@@ -55,6 +56,12 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     aux_loss_sum / nums
     global best_auc
     if iter is not None and best_auc < test_auc:
+        save_dir , prefix = os.path.split(best_model_path)
+        files_ = os.listdir(save_dir)
+        for file_ in files_:
+            if file_.startswith(prefix):
+                os.remove(file_)
+                
         best_auc = test_auc
         model.save(sess, best_model_path+"--"+str(iter))
     return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
@@ -97,7 +104,7 @@ def train(conf, seed):
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- train_aux_loss: %.4f' % \
                                           (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
                     sys.stdout.flush()
-                    
+
                     test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter, test_batches=10)
                     print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
                           (iter, test_loss, test_accuracy, test_aux_loss))
