@@ -70,9 +70,10 @@ def train(conf, seed):
         sess.run(tf.local_variables_initializer())
         print("local_variables_initializer done")
 
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, iter=None, test_batches=10)
-        print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
-              .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter=None, test_batches=10)
+        print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
+              (0, test_loss, test_accuracy, test_aux_loss))
+        print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(0, test_auc, test_user_auc))
         sys.stdout.flush()
 
         start_time = time.time()
@@ -93,14 +94,16 @@ def train(conf, seed):
                 test_writer.add_summary(test_merged_summary, iter)
 
                 if (iter % conf['test_iter']) == 0:
-                    print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
+                    print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- train_aux_loss: %.4f' % \
                                           (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
                     sys.stdout.flush()
+                    
                     test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter, test_batches=10)
-                    print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
-                          .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
+                    print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
+                          (iter, test_loss, test_accuracy, test_aux_loss))
 
-                    print('iter {}. learning rate: {}. {} iters take time: {}'.format(iter, lr, conf['test_iter'], time.time()- start_))
+                    print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(iter, test_auc, test_user_auc))
+                    print('iter: {} ----> learning rate: {}. {} iters take time: {}'.format(iter, lr, conf['test_iter'], time.time()- start_))
                     sys.stdout.flush()
                     start_ = time.time()
                 if (iter % conf['lr_decay_steps']) == 0:
