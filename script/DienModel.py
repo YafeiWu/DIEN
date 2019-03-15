@@ -197,8 +197,8 @@ class BaseModel(object):
 
 class DIENModel(BaseModel):
     """DIEN"""
-    def __init__(self, conf):
-        super(DIENModel, self).__init__(conf)
+    def __init__(self, conf, task="train"):
+        super(DIENModel, self).__init__(conf,task)
 
         # RNN layer(-s)
         with tf.name_scope('rnn_1'):
