@@ -15,7 +15,8 @@ def base64_to_int32(base64string):
     return record
 
 class BaseModel(object):
-    def __init__(self, conf):
+    def __init__(self, conf, task="train"):
+        self.task = task
         self.n_uid = conf['n_uid']
         self.n_mid = conf['n_mid']
         self.n_cat = conf['n_cat']
@@ -99,7 +100,10 @@ class BaseModel(object):
         dataset = tf.data.TextLineDataset(file)
         if self.enable_shuffle and for_training:
             dataset = dataset.shuffle(buffer_size=self.batch_size * 500)
-        dataset = dataset.repeat(self.epochs) if for_training else dataset.repeat()
+        if self.task == "train":
+            dataset = dataset.repeat(self.epochs) if for_training else dataset.repeat()
+        else:
+            pass ### test task with no repeat
         dataset = dataset.map(lambda x: base64_to_int32(x), num_parallel_calls=64)
         dataset = dataset.batch(self.batch_size)
         dataset = dataset.prefetch(1)

@@ -116,17 +116,21 @@ def train(conf, seed):
                 print("End of dataset")  # ==> "End of dataset"
                 sys.exit()
 
+        #### test_batches=10000 test for all, get per_user_auc
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 10000)
+        print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
+              .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
         print('Training done. Take time:{}'.format(time.time()-start_time))
 
 def test(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        model = DIENModel(conf)
+        model = DIENModel(conf, task="test")
         model.restore(sess, best_model_path)
         #### test_batches=10000 test for all, get per_user_auc
         test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 10000)
-        print('test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
+        print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 
 if __name__ == '__main__':
