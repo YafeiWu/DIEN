@@ -7,6 +7,7 @@ from rnn import dynamic_rnn
 from utils import *
 from Dice import dice
 import numpy as np
+import os
 
 
 def base64_to_int32(base64string):
@@ -184,6 +185,13 @@ class BaseModel(object):
         })
         return probs, targets, uids, loss, accuracy, aux_loss, merged
 
+    def update_best_model(self, sess, path, iter):
+        save_dir , prefix = os.path.split(path)
+        files_ = os.listdir(save_dir)
+        for file_ in files_:
+            if file_.startswith(prefix):
+                os.remove(os.path.join(save_dir,file_))
+        self.save(sess, path+"--"+str(iter))
 
     def save(self, sess, path):
         saver = tf.train.Saver()

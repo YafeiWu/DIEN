@@ -52,14 +52,8 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     aux_loss_sum / nums
     global best_auc
     if iter is not None and best_auc < test_auc:
-        save_dir , prefix = os.path.split(best_model_path)
-        files_ = os.listdir(save_dir)
-        for file_ in files_:
-            if file_.startswith(prefix):
-                os.remove(os.path.join(save_dir,file_))
-
+        model.update_best_model(sess, best_model_path, iter)
         best_auc = test_auc
-        model.save(sess, best_model_path+"--"+str(iter))
     return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
 
 def train(conf, seed):
@@ -124,12 +118,14 @@ def train(conf, seed):
 
 def test(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
+    model_dir , prefix = os.path.split(best_model_path)
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         model = DIENModel(conf, task="test")
-        model.restore(sess, best_model_path)
+        latest_model = os.path.join(model_dir, tf.train.latest_checkpoint(model_dir))
+        model.restore(sess, latest_model)
         #### test_batches=10000 test for all, get per_user_auc
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 10000)
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 100)
         print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 
