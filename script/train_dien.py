@@ -61,7 +61,6 @@ def train(conf, seed):
     train_writer = tf.summary.FileWriter("{}/train".format(conf['logdir']))
     test_writer = tf.summary.FileWriter("{}/test".format(conf['logdir']))
     session_config = tf.ConfigProto(
-        log_device_placement=True,
         inter_op_parallelism_threads=0,
         intra_op_parallelism_threads=0,
         allow_soft_placement=True)
@@ -124,7 +123,6 @@ def test(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
     model_dir , prefix = os.path.split(best_model_path)
     session_config = tf.ConfigProto(
-        log_device_placement=True,
         inter_op_parallelism_threads=0,
         intra_op_parallelism_threads=0,
         allow_soft_placement=True)
