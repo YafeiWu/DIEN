@@ -22,5 +22,5 @@ save_iter: 100
 epochs: 2
 best_model_path: "output/dnn_best_model/ckpt"
 logdir: "output/dnn_logdir"
-max_steps: 5000
-lr_decay_steps: 3000
+max_steps: 1000
+lr_decay_steps: 300

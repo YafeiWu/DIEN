@@ -60,8 +60,12 @@ def train(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
     train_writer = tf.summary.FileWriter("{}/train".format(conf['logdir']))
     test_writer = tf.summary.FileWriter("{}/test".format(conf['logdir']))
-    gpu_options = tf.GPUOptions(allow_growth=True)
-    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+    session_config = tf.ConfigProto(
+        log_device_placement=True,
+        inter_op_parallelism_threads=0,
+        intra_op_parallelism_threads=0,
+        allow_soft_placement=True)
+    with tf.Session(config=session_config) as sess:
         model = DIENModel(conf)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
@@ -119,8 +123,12 @@ def train(conf, seed):
 def test(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
     model_dir , prefix = os.path.split(best_model_path)
-    gpu_options = tf.GPUOptions(allow_growth=True)
-    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+    session_config = tf.ConfigProto(
+        log_device_placement=True,
+        inter_op_parallelism_threads=0,
+        intra_op_parallelism_threads=0,
+        allow_soft_placement=True)
+    with tf.Session(config=session_config) as sess:
         model = DIENModel(conf, task="test")
         latest_model = tf.train.latest_checkpoint(model_dir)
         model.restore(sess, latest_model)
