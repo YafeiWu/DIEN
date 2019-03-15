@@ -43,7 +43,8 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
                 stored_arr.append([u, p, t])
         except Exception as e :
             print("Error : {}".format(traceback.format_exc(e)))
-            print("End of dataset")  # ==> "End of dataset"
+            print("End of test dataset")  # ==> "End of test dataset"
+            break
 
 
     test_auc = cal_auc(stored_arr)
@@ -110,9 +111,10 @@ def train(conf, seed):
                 if (iter % conf['lr_decay_steps']) == 0:
                     lr *= 0.5
 
-            except IOError:
-                print("End of dataset")  # ==> "End of dataset"
-                sys.exit()
+            except Exception as e:
+                print("Error : {}".format(traceback.format_exc(e)))
+                print("End of training dataset")  # ==> "End of training dataset"
+                break
 
         #### test_batches=100 test for all, get per_user_auc
         test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 100)
