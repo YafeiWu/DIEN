@@ -122,7 +122,7 @@ def test(conf, seed):
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         model = DIENModel(conf, task="test")
-        latest_model = os.path.join(model_dir, tf.train.latest_checkpoint(model_dir))
+        latest_model = tf.train.latest_checkpoint(model_dir)
         model.restore(sess, latest_model)
         #### test_batches=10000 test for all, get per_user_auc
         test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 100)
