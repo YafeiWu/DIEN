@@ -41,7 +41,8 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             uid_1 = uids.tolist()
             for u, p ,t in zip(uid_1, prob_1, target_1):
                 stored_arr.append([u, p, t])
-        except IOError:
+        except Exception as e :
+            print("Error : {}".fromat(traceback.format_exc()))
             print("End of dataset")  # ==> "End of dataset"
 
 
@@ -49,7 +50,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     test_user_auc = cal_user_auc(stored_arr)
     accuracy_sum = accuracy_sum / nums
     loss_sum = loss_sum / nums
-    aux_loss_sum / nums
+    aux_loss_sum = aux_loss_sum / nums
     global best_auc
     if iter is not None and best_auc < test_auc:
         model.update_best_model(sess, best_model_path, iter)
@@ -70,7 +71,7 @@ def train(conf, seed):
         sess.run(tf.local_variables_initializer())
         print("local_variables_initializer done")
 
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter=None, test_batches=10)
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter=None, test_batches=1)
         print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
               (0, test_loss, test_accuracy, test_aux_loss))
         print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(0, test_auc, test_user_auc))
@@ -98,7 +99,7 @@ def train(conf, seed):
                                           (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
                     sys.stdout.flush()
 
-                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter, test_batches=10)
+                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter, test_batches=1)
                     print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
                           (iter, test_loss, test_accuracy, test_aux_loss))
 
@@ -113,8 +114,8 @@ def train(conf, seed):
                 print("End of dataset")  # ==> "End of dataset"
                 sys.exit()
 
-        #### test_batches=10000 test for all, get per_user_auc
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 10000)
+        #### test_batches=100 test for all, get per_user_auc
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 100)
         print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
         print('Training done. Take time:{}'.format(time.time()-start_time))
@@ -130,7 +131,7 @@ def test(conf, seed):
         model = DIENModel(conf, task="test")
         latest_model = tf.train.latest_checkpoint(model_dir)
         model.restore(sess, latest_model)
-        #### test_batches=10000 test for all, get per_user_auc
+        #### test_batches=100 test for all, get per_user_auc
         test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 100)
         print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
