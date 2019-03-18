@@ -35,7 +35,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     accuracy_sum = 0.
     aux_loss_sum = 0.
     stored_arr = []
-    for nums in range(test_batches):
+    for nums in range(1,test_batches+1):
         try:
             prob, target, uids, loss, acc, aux_loss, merged = model.calculate(sess, [False, 0.0])
             loss_sum += loss
