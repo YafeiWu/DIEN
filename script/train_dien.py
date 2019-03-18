@@ -25,6 +25,10 @@ def config(confpath, date=None):
     paras['n_tag'] = len(source_dicts[3])
     return paras
 
+def print_config(paras):
+    for para in paras:
+        print("Parameters ----> {} : {}\n".format(para, paras[para]))
+
 
 def eval(sess, model, best_model_path, iter=None, test_batches=1):
     loss_sum = 0.
