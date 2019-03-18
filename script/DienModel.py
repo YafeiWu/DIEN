@@ -52,6 +52,7 @@ class BaseModel(object):
             test_batches = self.prepare_from_base64(self.test_data, for_training=False)
             feats_batches = tf.cond(self.for_training, lambda:train_batches, lambda:test_batches)
 
+            self.target_1 = tf.cast(feats_batches[:,0], dtype=tf.float32)
             self.target_ph = tf.cast(self.get_one_group(feats_batches, 'target'), dtype=tf.float32)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
             self.mid_batch_ph = self.get_one_group(feats_batches, 'mid')
@@ -202,15 +203,21 @@ class BaseModel(object):
         with tf.name_scope('Metrics'):
             # Cross-entropy loss and optimizer initialization
             ctr_loss = - tf.reduce_mean(tf.log(self.y_hat) * self.target_ph)
+            tf.summary.scalar('ctr_loss', ctr_loss)
             self.loss = ctr_loss
             if self.use_negsampling:
                 self.loss += self.aux_loss
+                tf.summary.scalar('aux_loss', self.aux_loss)
             tf.summary.scalar('loss', self.loss)
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
             # Accuracy metric
             self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat), self.target_ph), tf.float32))
             tf.summary.scalar('accuracy', self.accuracy)
+
+            # ACU metric
+            self.auc = tf.metrics.auc(self.target_1, self.y_hat)
+            tf.summary.scalar('auc', self.auc)
 
         self.merged = tf.summary.merge_all()
 

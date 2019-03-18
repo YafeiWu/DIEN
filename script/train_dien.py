@@ -11,10 +11,14 @@ import os
 
 best_auc = 0.
 
-def config(confpath, date=None):
+def config(confpath, outdir=""):
     with open(confpath, 'r') as f:
         content = f.read()
     paras = yaml.load(content)
+
+    if outdir:
+        paras['best_model_path'] = os.path.join(outdir, paras['best_model_path'])
+        paras['dnn_logdir'] = os.path.join(outdir, paras['dnn_logdir'])
 
     source_dicts = []
     for source_dict in [paras['uid_voc'], paras['mid_voc'], paras['cat_voc'], paras['tag_voc']]:
@@ -144,7 +148,7 @@ def test(conf, seed):
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 
 if __name__ == '__main__':
-    conf = config(sys.argv[2])
+    conf = config(sys.argv[2], sys.argv[3])
     print("--------------- Model Config --------------- \n{}\n".format(conf))
     SEED = conf['seed']
     tf.set_random_seed(SEED)

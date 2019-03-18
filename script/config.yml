@@ -8,7 +8,7 @@ item_info: "data/item_info.json"
 uid_embedding_dim: 32
 mid_embedding_dim: 32
 cat_embedding_dim: 16
-tag_embedding_dim: 16
+tag_embedding_dim: 2
 hidden_size: 64
 attention_size: 64
 batch_size: 1024
@@ -23,7 +23,7 @@ seed: 2
 test_iter: 100
 save_iter: 100
 epochs: 2
-best_model_path: "output/dnn_best_model/ckpt"
-logdir: "output/dnn_logdir"
+best_model_path: "dnn_best_model/ckpt"
+logdir: "dnn_logdir"
 max_steps: 1000
 lr_decay_steps: 300
