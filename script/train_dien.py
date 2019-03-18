@@ -18,7 +18,7 @@ def config(confpath, outdir=""):
 
     if outdir:
         paras['best_model_path'] = os.path.join(outdir, paras['best_model_path'])
-        paras['dnn_logdir'] = os.path.join(outdir, paras['dnn_logdir'])
+        paras['logdir'] = os.path.join(outdir, paras['logdir'])
 
     source_dicts = []
     for source_dict in [paras['uid_voc'], paras['mid_voc'], paras['cat_voc'], paras['tag_voc']]:

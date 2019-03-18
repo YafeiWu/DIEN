@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-outdir=$1
-config=$2
+config=$1
+outdir=$2
 rm -rf ${outdir}
 mkdir ${outdir}
 mkdir ${outdir}/dnn_best_model
