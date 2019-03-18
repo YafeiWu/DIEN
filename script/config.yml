@@ -3,6 +3,7 @@ test_file: "data/test_splitByUser"
 uid_voc: "data/uid_voc.json"
 mid_voc: "data/item_voc.json"
 cat_voc: "data/cate_voc.json"
+tag_voc: "data/tag_voc.json"
 item_info: "data/item_info.json"
 uid_embedding_dim: 32
 mid_embedding_dim: 32

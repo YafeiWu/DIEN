@@ -17,11 +17,12 @@ def config(confpath, date=None):
     paras = yaml.load(content)
 
     source_dicts = []
-    for source_dict in [paras['uid_voc'], paras['mid_voc'], paras['cat_voc']]:
+    for source_dict in [paras['uid_voc'], paras['mid_voc'], paras['cat_voc'], paras['tag_voc']]:
         source_dicts.append(load_voc(source_dict))
     paras['n_uid'] = len(source_dicts[0])
     paras['n_mid'] = len(source_dicts[1])
     paras['n_cat'] = len(source_dicts[2])
+    paras['n_tag'] = len(source_dicts[3])
     return paras
 
 
