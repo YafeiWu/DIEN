@@ -215,10 +215,6 @@ class BaseModel(object):
             self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat), self.target_ph), tf.float32))
             tf.summary.scalar('accuracy', self.accuracy)
 
-            # ACU metric
-            self.auc = tf.metrics.auc(self.target_1, self.y_hat)
-            tf.summary.scalar('auc', self.auc)
-
         self.merged = tf.summary.merge_all()
 
     def auxiliary_loss(self, h_states, click_seq, noclick_seq, mask, stag = None):
