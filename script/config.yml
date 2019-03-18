@@ -14,8 +14,9 @@ attention_size: 64
 batch_size: 1024
 maxlen: 100
 minlen: 1
-feats_dim: 217
+feats_dim: 747
 negseq_length: 5
+tags_length: 5
 model_type: 'DIEN'
 enable_shuffle: True
 seed: 2

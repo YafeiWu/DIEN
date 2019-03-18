@@ -1,3 +1,4 @@
+import json
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -14,6 +15,9 @@ class UserSeqFeature:
         # self.feat_type = "embed or scala" #hash_str
         # self.defaultVal = defaultVal
         # self.group = group
+
+    def __str__(self):
+        return "UserSeqFeature({})".format(json.dumps({'f_name': self.f_name, 'f_offset': self.f_offset, 'f_ends': self.f_ends, 'f_width': self.f_width}))
 
     def copy(self,another_feat):
         self.f_name=another_feat.f_name
