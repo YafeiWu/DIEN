@@ -27,7 +27,7 @@ def config(confpath, date=None):
 
 def print_config(paras):
     for para in paras:
-        print("Parameters ----> {} : {}\n".format(para, paras[para]))
+        print("Parameters ----> {} : {}".format(para, paras[para]))
 
 
 def eval(sess, model, best_model_path, iter=None, test_batches=1):
@@ -145,7 +145,7 @@ def test(conf, seed):
 
 if __name__ == '__main__':
     conf = config(sys.argv[2])
-    print("Model Config : {}".format(conf))
+    print("--------------- Model Config --------------- \n{}\n".format(conf))
     SEED = conf['seed']
     tf.set_random_seed(SEED)
     numpy.random.seed(SEED)

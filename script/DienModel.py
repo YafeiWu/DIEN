@@ -8,6 +8,10 @@ from utils import *
 from Dice import dice
 import numpy as np
 import os
+import sys
+import time
+from feature_def import UserSeqFeature
+from train_dien import config
 
 
 def base64_to_int32(base64string):
@@ -21,9 +25,11 @@ class BaseModel(object):
         self.n_uid = conf['n_uid']
         self.n_mid = conf['n_mid']
         self.n_cat = conf['n_cat']
+        self.n_tag = conf['n_tag']
         self.uid_embedding_dim = conf['uid_embedding_dim']
         self.mid_embedding_dim = conf['mid_embedding_dim']
         self.cat_embedding_dim = conf['cat_embedding_dim']
+        self.tag_embedding_dim = conf['tag_embedding_dim']
         self.hidden_size = conf['hidden_size']
         self.attention_size = conf['attention_size']
         self.training_data = conf['train_file']
@@ -36,6 +42,8 @@ class BaseModel(object):
         self.feats_dim = conf['feats_dim']
         self.negStartIdx = 6+2*self.maxLen+1 #207
         self.use_negsampling = True
+        self.fixTagsLen = conf['tags_length']
+        self.feat_group = self.init_feat_group()
 
         with tf.name_scope('Inputs'):
             self.for_training = tf.placeholder_with_default(tf.constant(False),shape=(),name="training_flag")
@@ -44,58 +52,121 @@ class BaseModel(object):
             test_batches = self.prepare_from_base64(self.test_data, for_training=False)
             feats_batches = tf.cond(self.for_training, lambda:train_batches, lambda:test_batches)
 
-            self.target_ph = tf.cast(feats_batches[:, 0:2], dtype=tf.float32)
-            # label_tuple = tf.map_fn(lambda x: (x, 1.-x), tf.cast(feats_batches[:,0], tf.float32), dtype=(tf.float32, tf.float32))
-            # label_array = tf.concat([label_tuple[0], label_tuple[1]], -1)
-            # self.target_ph = tf.reshape(label_array, [self.batch_size,2])
-            self.uid_batch_ph = feats_batches[:, 2]
-            self.mid_batch_ph = feats_batches[:, 3]
-            self.cat_batch_ph = feats_batches[:, 4]
-            self.seq_len_ph = feats_batches[:, 5]
-            self.mid_his_batch_ph = feats_batches[:, 6 : 6+self.maxLen]
-            self.cat_his_batch_ph = feats_batches[:, 6+self.maxLen : 6+2*self.maxLen]
+            self.target_ph = tf.cast(self.get_one_group(feats_batches, 'target'), dtype=tf.float32)
+            self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
+            self.mid_batch_ph = self.get_one_group(feats_batches, 'mid')
+            self.cat_batch_ph = self.get_one_group(feats_batches, 'cate')
+            self.tags_batch_ph = self.get_one_group(feats_batches, 'tags')
+            self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
+            self.mid_his_batch_ph = self.get_one_group(feats_batches, 'clkmid_seq')
+            self.cat_his_batch_ph = self.get_one_group(feats_batches, 'clkcate_seq')
+            self.tags_his_batch_ph = self.get_one_group(feats_batches, 'clktags_seq')
 
-            self.noclk_seq_length = feats_batches[:, self.negStartIdx-1]
-            self.noclk_mid_batch_ph = tf.expand_dims(feats_batches[:, self.negStartIdx : self.negStartIdx+self.negSeqLen], 1) # shape(self.batch_size, self.negSeqLen) to shape(self.batch_size, self.negSeqLen, 1)
-            self.noclk_mid_batch_ph = tf.tile(self.noclk_mid_batch_ph, multiples=[1, self.maxLen, 1]) # shape(self.batch_size,1,1) to shape(self.batch_size, self.maxLen, self.negSeqLen)
-            self.noclk_cat_batch_ph = tf.expand_dims(feats_batches[:, self.negStartIdx+self.negSeqLen : self.negStartIdx+2*self.negSeqLen], 1)
-            self.noclk_cat_batch_ph = tf.tile(self.noclk_cat_batch_ph, multiples=[1, self.maxLen, 1])
+            self.noclk_seq_length = self.get_one_group(feats_batches, 'noclkseq_len')
+            self.noclk_mid_batch_ph = self.get_one_group(feats_batches, 'noclkmid_seq')
+            self.noclk_cat_batch_ph = self.get_one_group(feats_batches, 'noclkcate_seq')
 
-            init_mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
-            self.mask = tf.sequence_mask(self.seq_len_ph, init_mask.shape[1], dtype=tf.float32)
+            self.noclk_tags_batch_ph = self.get_one_group(feats_batches, 'noclktags_seq')
+
+            self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
+            self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
 
         # Embedding layer
         with tf.name_scope('Embedding_layer'):
+            ### init embedding layers
             self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim])
             tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
-            self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
-
             self.mid_embeddings_var = tf.get_variable("mid_embedding_var", [self.n_mid, self.mid_embedding_dim])
             tf.summary.histogram('mid_embeddings_var', self.mid_embeddings_var)
-            self.mid_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_batch_ph)
-            self.mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_his_batch_ph)
-            if self.use_negsampling:
-                self.noclk_mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.noclk_mid_batch_ph)
-
             self.cat_embeddings_var = tf.get_variable("cat_embedding_var", [self.n_cat, self.cat_embedding_dim])
             tf.summary.histogram('cat_embeddings_var', self.cat_embeddings_var)
+            self.tag_embeddings_var = tf.get_variable("tag_embedding_var", [self.n_tag, self.tag_embedding_dim])
+            tf.summary.histogram('tag_embeddings_var', self.tag_embedding_dim)
+
+            self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
+
+            self.mid_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_batch_ph)
+            self.mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_his_batch_ph)
+
             self.cat_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_batch_ph)
             self.cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_his_batch_ph)
-            if self.use_negsampling:
-                self.noclk_cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.noclk_cat_batch_ph)
 
-            self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded], 1)
-            self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded], 2)
+            self.tags_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_batch_ph)
+            self.tags_batch_embedded = tf.reshape(self.tags_batch_embedded, [-1,self.tag_embedding_dim*self.fixTagsLen])
+
+            self.tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_his_batch_ph)
+            self.tags_his_batch_embedded = self.reshape_multiseq(self.tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.maxLen)
+
+            self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded, self.tags_batch_embedded], 1)
+            self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded, self.tags_his_batch_embedded], 2)
             self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
-            if self.use_negsampling:
-                self.noclk_item_his_eb = tf.concat(
-                    [self.noclk_mid_his_batch_embedded[:, :, 0, :], self.noclk_cat_his_batch_embedded[:, :, 0, :]], -1)# 0 means only using the first negative item ID. 3 item IDs are inputed in the line 24.
-                self.noclk_item_his_eb = tf.reshape(self.noclk_item_his_eb,
-                                                    [-1, tf.shape(self.noclk_mid_his_batch_embedded)[1], self.cat_embedding_dim+self.mid_embedding_dim])# cat embedding 18 concate item embedding 18.
 
-                self.noclk_his_eb = tf.concat([self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], -1)
-                self.noclk_his_eb_sum_1 = tf.reduce_sum(self.noclk_his_eb, 2)
-                self.noclk_his_eb_sum = tf.reduce_sum(self.noclk_his_eb_sum_1, 1)
+            if self.use_negsampling:
+                self.noclk_mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.noclk_mid_batch_ph)
+                self.noclk_mid_his_batch_embedded = self.fill_noclkseq(self.noclk_mid_his_batch_embedded, self.mid_embedding_dim)
+
+                self.noclk_cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.noclk_cat_batch_ph)
+                self.noclk_cat_his_batch_embedded = self.fill_noclkseq(self.noclk_cat_his_batch_embedded, self.cat_embedding_dim)
+
+                self.noclk_tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.noclk_tags_batch_ph)
+                self.noclk_tags_his_batch_embedded = self.reshape_multiseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.negSeqLen)
+                self.noclk_tags_his_batch_embedded = self.fill_noclkseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim * self.negSeqLen)
+
+                self.noclk_item_his_eb = tf.concat(
+                    [self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded, self.noclk_tags_his_batch_embedded], 2)
+
+                # self.noclk_his_eb = tf.concat([self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], -1) #shape(batch_size, maxLen, negSeqLen, cat_dim+mid_dim)
+                # self.noclk_his_eb_sum_1 = tf.reduce_sum(self.noclk_his_eb, 2)
+                # self.noclk_his_eb_sum = tf.reduce_sum(self.noclk_his_eb_sum_1, 1)
+
+    def fill_noclkseq(self, eb, eb_dim):
+        eb_1 = tf.expand_dims(eb, 1)
+        eb_2 = tf.tile(eb_1, multiples=[1, self.maxLen/tf.shape(eb)[1], 1, 1])
+        eb_3 = tf.reshape(eb_2,
+                          [-1, self.maxLen, eb_dim])
+        return eb_3
+
+    def reshape_multiseq(self, eb, eb_dim, multi_len, res_len):
+        eb_1  = tf.reshape(eb,
+                           [-1, res_len, multi_len, eb_dim])
+        eb_2 = tf.reshape(eb_1,
+                          [-1, res_len, multi_len * eb_dim ])
+        return eb_2
+
+
+    def init_feat_group(self):
+        feat_names = [
+            ("target",2),
+            ("uid",1),
+            ("mid",1),
+            ("cate",1),
+            ("tags",self.fixTagsLen),
+            ("clkseq_len",1),
+            ("clkmid_seq",self.maxLen),
+            ("clkcate_seq",self.maxLen),
+            ("clktags_seq",self.maxLen*self.fixTagsLen),
+            ("noclkseq_len",1),
+            ("noclkmid_seq",self.negSeqLen),
+            ("noclkcate_seq",self.negSeqLen),
+            ("noclktags_seq",self.negSeqLen*self.fixTagsLen)
+        ]
+        feat_group = {}
+        cur_offset = 0
+        for feat_name, feat_width in feat_names:
+            feat_group[feat_name] = UserSeqFeature(fname=feat_name,foffset=cur_offset,fends=cur_offset+feat_width,fwidth=feat_width)
+            cur_offset += feat_width
+            print("init_feat_group:\t{}".format(feat_group[feat_name]))
+        return feat_group
+
+    def get_one_group(self, feats_batches, fname):
+        foffset = getattr(self.feat_group[fname], 'f_offset')
+        fends = getattr(self.feat_group[fname],'f_ends')
+        fwidth = getattr(self.feat_group[fname],'f_width')
+        # print("\tDEBUG fname :{}, fwidth: {}, foffset:{}, fends:{}".format(fname, fwidth, foffset, fends))
+        if fwidth>1:
+            return feats_batches[:, foffset: fends]
+        else:
+            return feats_batches[:, foffset]
 
     def prepare_from_base64(self, file, for_training=False):
         dataset = tf.data.TextLineDataset(file)
