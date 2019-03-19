@@ -58,7 +58,7 @@ class BaseModel(object):
             self.target_1 = tf.cast(feats_batches[:,0], dtype=tf.float32)
             self.target_ph = tf.cast(self.get_one_group(feats_batches, 'target'), dtype=tf.float32)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
-            self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
+            # self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
             self.mid_batch_ph = self.get_one_group(feats_batches, 'mid')
             self.cat_batch_ph = self.get_one_group(feats_batches, 'cate')
             self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
