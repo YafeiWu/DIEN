@@ -11,7 +11,6 @@ import os
 import sys
 import time
 from feature_def import UserSeqFeature
-from train_dien import config
 
 
 def base64_to_int32(base64string):

@@ -12,6 +12,7 @@ from tensorflow.python.keras import backend as K
 import logging
 import traceback
 import json
+import yaml
 
 class QAAttGRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078).
@@ -147,6 +148,24 @@ class VecAttGRUCell(RNNCell):
     u = (1.0 - att_score) * u
     new_h = u * state + (1 - u) * c
     return new_h, new_h
+
+def config(confpath, outdir=""):
+    with open(confpath, 'r') as f:
+        content = f.read()
+    paras = yaml.load(content)
+
+    if outdir:
+        paras['best_model_path'] = os.path.join(outdir, paras['best_model_path'])
+        paras['logdir'] = os.path.join(outdir, paras['logdir'])
+
+    source_dicts = []
+    for source_dict in [paras['uid_voc'], paras['mid_voc'], paras['cat_voc'], paras['tag_voc']]:
+        source_dicts.append(load_voc(source_dict))
+    paras['n_uid'] = len(source_dicts[0])
+    paras['n_mid'] = len(source_dicts[1])
+    paras['n_cat'] = len(source_dicts[2])
+    paras['n_tag'] = len(source_dicts[3])
+    return paras
 
 def load_voc(filename):
     try:

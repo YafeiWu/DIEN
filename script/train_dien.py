@@ -6,33 +6,9 @@ import random
 import sys
 import traceback
 from utils import *
-import yaml
 import os
 
 best_auc = 0.
-
-def config(confpath, outdir=""):
-    with open(confpath, 'r') as f:
-        content = f.read()
-    paras = yaml.load(content)
-
-    if outdir:
-        paras['best_model_path'] = os.path.join(outdir, paras['best_model_path'])
-        paras['logdir'] = os.path.join(outdir, paras['logdir'])
-
-    source_dicts = []
-    for source_dict in [paras['uid_voc'], paras['mid_voc'], paras['cat_voc'], paras['tag_voc']]:
-        source_dicts.append(load_voc(source_dict))
-    paras['n_uid'] = len(source_dicts[0])
-    paras['n_mid'] = len(source_dicts[1])
-    paras['n_cat'] = len(source_dicts[2])
-    paras['n_tag'] = len(source_dicts[3])
-    return paras
-
-def print_config(paras):
-    for para in paras:
-        print("Parameters ----> {} : {}".format(para, paras[para]))
-
 
 def eval(sess, model, best_model_path, iter=None, test_batches=1):
     loss_sum = 0.
