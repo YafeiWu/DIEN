@@ -29,6 +29,7 @@ class BaseModel(object):
         self.mid_embedding_dim = conf['mid_embedding_dim']
         self.cat_embedding_dim = conf['cat_embedding_dim']
         self.tag_embedding_dim = conf['tag_embedding_dim']
+        self.enable_tag = conf['enable_tag']
         self.hidden_size = conf['hidden_size']
         self.attention_size = conf['attention_size']
         self.training_data = conf['train_file']
@@ -56,17 +57,17 @@ class BaseModel(object):
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
             self.mid_batch_ph = self.get_one_group(feats_batches, 'mid')
             self.cat_batch_ph = self.get_one_group(feats_batches, 'cate')
-            self.tags_batch_ph = self.get_one_group(feats_batches, 'tags')
             self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
             self.mid_his_batch_ph = self.get_one_group(feats_batches, 'clkmid_seq')
             self.cat_his_batch_ph = self.get_one_group(feats_batches, 'clkcate_seq')
-            self.tags_his_batch_ph = self.get_one_group(feats_batches, 'clktags_seq')
-
             self.noclk_seq_length = self.get_one_group(feats_batches, 'noclkseq_len')
             self.noclk_mid_batch_ph = self.get_one_group(feats_batches, 'noclkmid_seq')
             self.noclk_cat_batch_ph = self.get_one_group(feats_batches, 'noclkcate_seq')
 
-            self.noclk_tags_batch_ph = self.get_one_group(feats_batches, 'noclktags_seq')
+            if self.enable_tag:
+                self.tags_batch_ph = self.get_one_group(feats_batches, 'tags')
+                self.tags_his_batch_ph = self.get_one_group(feats_batches, 'clktags_seq')
+                self.noclk_tags_batch_ph = self.get_one_group(feats_batches, 'noclktags_seq')
 
             self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
@@ -91,14 +92,19 @@ class BaseModel(object):
             self.cat_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_batch_ph)
             self.cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_his_batch_ph)
 
-            self.tags_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_batch_ph)
-            self.tags_batch_embedded = tf.reshape(self.tags_batch_embedded, [-1,self.tag_embedding_dim*self.fixTagsLen])
+            if self.enable_tag:
+                self.tags_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_batch_ph)
+                self.tags_batch_embedded = tf.reshape(self.tags_batch_embedded, [-1,self.tag_embedding_dim*self.fixTagsLen])
 
-            self.tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_his_batch_ph)
-            self.tags_his_batch_embedded = self.reshape_multiseq(self.tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.maxLen)
+                self.tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_his_batch_ph)
+                self.tags_his_batch_embedded = self.reshape_multiseq(self.tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.maxLen)
 
-            self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded, self.tags_batch_embedded], 1)
-            self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded, self.tags_his_batch_embedded], 2)
+                self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded, self.tags_batch_embedded], 1)
+                self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded, self.tags_his_batch_embedded], 2)
+            else:
+                self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded], 1)
+                self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded], 2)
+
             self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
 
             if self.use_negsampling:
@@ -108,12 +114,16 @@ class BaseModel(object):
                 self.noclk_cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.noclk_cat_batch_ph)
                 self.noclk_cat_his_batch_embedded = self.fill_noclkseq(self.noclk_cat_his_batch_embedded, self.cat_embedding_dim)
 
-                self.noclk_tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.noclk_tags_batch_ph)
-                self.noclk_tags_his_batch_embedded = self.reshape_multiseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.negSeqLen)
-                self.noclk_tags_his_batch_embedded = self.fill_noclkseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim * self.negSeqLen)
+                if self.enable_tag:
+                    self.noclk_tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.noclk_tags_batch_ph)
+                    self.noclk_tags_his_batch_embedded = self.reshape_multiseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.negSeqLen)
+                    self.noclk_tags_his_batch_embedded = self.fill_noclkseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim * self.negSeqLen)
 
-                self.noclk_item_his_eb = tf.concat(
-                    [self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded, self.noclk_tags_his_batch_embedded], 2)
+                    self.noclk_item_his_eb = tf.concat(
+                        [self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded, self.noclk_tags_his_batch_embedded], 2)
+                else:
+                    self.noclk_item_his_eb = tf.concat(
+                        [self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], 2)
 
                 # self.noclk_his_eb = tf.concat([self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], -1) #shape(batch_size, maxLen, negSeqLen, cat_dim+mid_dim)
                 # self.noclk_his_eb_sum_1 = tf.reduce_sum(self.noclk_his_eb, 2)

@@ -9,6 +9,7 @@ uid_embedding_dim: 32
 mid_embedding_dim: 32
 cat_embedding_dim: 16
 tag_embedding_dim: 2
+enable_tag: False
 hidden_size: 64
 attention_size: 64
 batch_size: 1024
