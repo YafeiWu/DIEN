@@ -6,9 +6,11 @@ cat_voc: "data/cate_voc.json"
 tag_voc: "data/tag_voc.json"
 item_info: "data/item_info.json"
 uid_embedding_dim: 32
+utype_embedding_dim: 4
 mid_embedding_dim: 32
-cat_embedding_dim: 16
+cat_embedding_dim: 4
 tag_embedding_dim: 2
+enable_uid: False
 enable_tag: True
 hidden_size: 64
 attention_size: 64

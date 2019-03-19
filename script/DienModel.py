@@ -26,9 +26,11 @@ class BaseModel(object):
         self.n_cat = conf['n_cat']
         self.n_tag = conf['n_tag']
         self.uid_embedding_dim = conf['uid_embedding_dim']
+        self.utype_embedding_dim = conf['utype_embedding_dim']
         self.mid_embedding_dim = conf['mid_embedding_dim']
         self.cat_embedding_dim = conf['cat_embedding_dim']
         self.tag_embedding_dim = conf['tag_embedding_dim']
+        self.enable_uid = conf['enable_uid']
         self.enable_tag = conf['enable_tag']
         self.hidden_size = conf['hidden_size']
         self.attention_size = conf['attention_size']
@@ -55,6 +57,7 @@ class BaseModel(object):
             self.target_1 = tf.cast(feats_batches[:,0], dtype=tf.float32)
             self.target_ph = tf.cast(self.get_one_group(feats_batches, 'target'), dtype=tf.float32)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
+            self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
             self.mid_batch_ph = self.get_one_group(feats_batches, 'mid')
             self.cat_batch_ph = self.get_one_group(feats_batches, 'cate')
             self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
@@ -77,12 +80,19 @@ class BaseModel(object):
             ### init embedding layers
             self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
             tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
+            self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
             self.mid_embeddings_var = tf.get_variable("mid_embedding_var", [self.n_mid, self.mid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
             tf.summary.histogram('mid_embeddings_var', self.mid_embeddings_var)
             self.cat_embeddings_var = tf.get_variable("cat_embedding_var", [self.n_cat, self.cat_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
             tf.summary.histogram('cat_embeddings_var', self.cat_embeddings_var)
 
-            self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
+            self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
+            if self.enable_uid:
+                self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
+                self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
+            else:
+                self.user_batch_embedded = self.utype_batch_embedded
 
             self.mid_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_batch_ph)
             self.mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_his_batch_ph)
@@ -149,6 +159,7 @@ class BaseModel(object):
         feat_names = [
             ("target",2),
             ("uid",1),
+            ("utype",1),
             ("mid",1),
             ("cate",1),
             ("tags",self.fixTagsLen),
@@ -263,11 +274,11 @@ class BaseModel(object):
         return loss, accuracy, aux_loss, merged
 
     def calculate(self, sess, inps):
-        probs, targets, uids, loss, accuracy, aux_loss, merged = sess.run([self.y_hat, self.target_ph, self.uid_batch_ph, self.loss, self.accuracy, self.aux_loss, self.merged], feed_dict={
+        probs, targets, uids, loss, accuracy, aux_loss = sess.run([self.y_hat, self.target_ph, self.uid_batch_ph, self.loss, self.accuracy, self.aux_loss], feed_dict={
             self.for_training: inps[0],
             self.lr: inps[1]
         })
-        return probs, targets, uids, loss, accuracy, aux_loss, merged
+        return probs, targets, uids, loss, accuracy, aux_loss
 
     def update_best_model(self, sess, path, iter):
         save_dir , prefix = os.path.split(path)
@@ -317,6 +328,6 @@ class DIENModel(BaseModel):
                                                      scope="gru2")
             tf.summary.histogram('GRU2_Final_State', final_state2)
 
-        inp = tf.concat([self.uid_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, final_state2], 1)
+        inp = tf.concat([self.user_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, final_state2], 1)
         self.build_fcn_net(inp, use_dice=True)
 

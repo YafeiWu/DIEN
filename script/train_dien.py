@@ -17,7 +17,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     stored_arr = []
     for nums in range(1,test_batches+1):
         try:
-            prob, target, uids, loss, acc, aux_loss, merged = model.calculate(sess, [False, 0.0])
+            prob, target, uids, loss, acc, aux_loss = model.calculate(sess, [False, 0.0])
             loss_sum += loss
             aux_loss_sum = aux_loss
             accuracy_sum += acc
@@ -31,6 +31,9 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             print("End of test dataset")  # ==> "End of test dataset"
             break
 
+    if nums <= 0:
+        return None, None, None, None, None
+
     test_auc = cal_auc(stored_arr)
     test_user_auc = cal_user_auc(stored_arr)
     accuracy_sum = accuracy_sum / nums
@@ -40,7 +43,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     if iter is not None and best_auc < test_auc:
         model.update_best_model(sess, best_model_path, iter)
         best_auc = test_auc
-    return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum, merged
+    return test_auc, test_user_auc, loss_sum, accuracy_sum, aux_loss_sum
 
 def train(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
@@ -58,7 +61,7 @@ def train(conf, seed):
         tf.summary.FileWriter(conf['logdir'], sess.graph)
         print("local_variables_initializer done")
 
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter=None, test_batches=1)
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter=None, test_batches=1)
         print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
               (0, test_loss, test_accuracy, test_aux_loss))
         print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(0, test_auc, test_user_auc))
@@ -83,7 +86,7 @@ def train(conf, seed):
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- train_aux_loss: %.4f' % \
                                           (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
 
-                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter, test_batches=1)
+                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter, test_batches=5)
                     print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
                           (iter, test_loss, test_accuracy, test_aux_loss))
 
