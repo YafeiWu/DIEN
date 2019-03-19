@@ -55,6 +55,7 @@ def train(conf, seed):
         model = DIENModel(conf)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
+        tf.summary.FileWriter(conf['logdir'], sess.graph)
         print("local_variables_initializer done")
 
         test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter=None, test_batches=1)
