@@ -13,6 +13,7 @@ import logging
 import traceback
 import json
 import yaml
+import os
 
 class QAAttGRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078).
