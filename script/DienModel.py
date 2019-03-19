@@ -22,6 +22,7 @@ class BaseModel(object):
     def __init__(self, conf, task="train"):
         self.task = task
         self.n_uid = conf['n_uid']
+        self.n_utype = conf['n_utype']
         self.n_mid = conf['n_mid']
         self.n_cat = conf['n_cat']
         self.n_tag = conf['n_tag']
@@ -77,26 +78,25 @@ class BaseModel(object):
 
         # Embedding layer
         with tf.name_scope('Embedding_layer'):
-            ### init embedding layers
-            self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
-            tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
-            self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
-            tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
-            self.mid_embeddings_var = tf.get_variable("mid_embedding_var", [self.n_mid, self.mid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
-            tf.summary.histogram('mid_embeddings_var', self.mid_embeddings_var)
-            self.cat_embeddings_var = tf.get_variable("cat_embedding_var", [self.n_cat, self.cat_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
-            tf.summary.histogram('cat_embeddings_var', self.cat_embeddings_var)
-
-            self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
+            # self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            # tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
+            # self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
             if self.enable_uid:
+                self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+                tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
                 self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
-                self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
+                # self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
+                self.user_batch_embedded = self.uid_batch_embedded
             else:
                 self.user_batch_embedded = self.utype_batch_embedded
 
+            self.mid_embeddings_var = tf.get_variable("mid_embedding_var", [self.n_mid, self.mid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            tf.summary.histogram('mid_embeddings_var', self.mid_embeddings_var)
             self.mid_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_batch_ph)
             self.mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_his_batch_ph)
 
+            self.cat_embeddings_var = tf.get_variable("cat_embedding_var", [self.n_cat, self.cat_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            tf.summary.histogram('cat_embeddings_var', self.cat_embeddings_var)
             self.cat_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_batch_ph)
             self.cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_his_batch_ph)
 
@@ -159,7 +159,7 @@ class BaseModel(object):
         feat_names = [
             ("target",2),
             ("uid",1),
-            ("utype",1),
+            # ("utype",1),
             ("mid",1),
             ("cate",1),
             ("tags",self.fixTagsLen),
@@ -244,9 +244,14 @@ class BaseModel(object):
         noclick_input_ = tf.concat([h_states, noclick_seq], -1)
         click_prop_ = self.auxiliary_net(click_input_, stag = stag)[:, :, 0]
         noclick_prop_ = self.auxiliary_net(noclick_input_, stag = stag)[:, :, 0]
-        click_loss_ = - tf.reshape(tf.log(click_prop_), [-1, tf.shape(click_seq)[1]]) * mask
-        noclick_loss_ = - tf.reshape(tf.log(1.0 - noclick_prop_), [-1, tf.shape(noclick_seq)[1]]) * mask
-        loss_ = tf.reduce_mean(click_loss_ + noclick_loss_)
+        # click_loss_ = - tf.reshape(tf.log(click_prop_), [-1, tf.shape(click_seq)[1]]) * mask
+        # noclick_loss_ = - tf.reshape(tf.log(1.0 - noclick_prop_), [-1, tf.shape(noclick_seq)[1]]) * mask
+        # loss_ = tf.reduce_mean(click_loss_ + noclick_loss_)
+
+        ### pairwise loss
+        pair_loss = - tf.reshape(tf.log(tf.sigmoid(click_prop_-noclick_prop_)), [-1, tf.shape(click_seq)[1]]) * mask
+        loss_ = tf.reduce_mean(pair_loss)
+
         return loss_
 
     def auxiliary_net(self, in_, stag='auxiliary_net'):
@@ -330,4 +335,3 @@ class DIENModel(BaseModel):
 
         inp = tf.concat([self.user_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, final_state2], 1)
         self.build_fcn_net(inp, use_dice=True)
-
