@@ -27,10 +27,9 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             for u, p ,t in zip(uid_1, prob_1, target_1):
                 stored_arr.append([u, p, t])
         except Exception as e :
-            print("Error : {}".format(traceback.format_exc(e)))
+            print("eval Error : {}".format(traceback.format_exc(e)))
             print("End of test dataset")  # ==> "End of test dataset"
             break
-
 
     test_auc = cal_auc(stored_arr)
     test_user_auc = cal_user_auc(stored_arr)
@@ -47,6 +46,7 @@ def train(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
     train_writer = tf.summary.FileWriter("{}/train".format(conf['logdir']))
     test_writer = tf.summary.FileWriter("{}/test".format(conf['logdir']))
+    test_iter = conf['test_iter']
     session_config = tf.ConfigProto(
         inter_op_parallelism_threads=0,
         intra_op_parallelism_threads=0,
@@ -64,13 +64,11 @@ def train(conf, seed):
         print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(0, test_auc, test_user_auc))
         sys.stdout.flush()
 
-        start_time = time.time()
+        start_first = time.time()
         lr = 0.001
+        loss_sum, accuracy_sum, aux_loss_sum= 0., 0., 0.
         start_ = time.time()
         for iter in range(1,conf['max_steps']):
-            loss_sum = 0.0
-            accuracy_sum = 0.
-            aux_loss_sum = 0.
             try:
                 loss, acc, aux_loss, train_merged_summary = model.train(sess, [True, lr])
                 loss_sum += loss
@@ -81,24 +79,26 @@ def train(conf, seed):
                 test_loss, test_accuracy, test_aux_loss, test_merged_summary = model.test(sess, [False, lr])
                 test_writer.add_summary(test_merged_summary, iter)
 
-                if (iter % conf['test_iter']) == 0:
+                if (iter % test_iter) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- train_aux_loss: %.4f' % \
-                                          (iter, loss_sum / iter, accuracy_sum / iter, aux_loss_sum / iter))
-                    sys.stdout.flush()
+                                          (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
 
                     test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, _ = eval(sess, model, best_model_path, iter, test_batches=1)
                     print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
                           (iter, test_loss, test_accuracy, test_aux_loss))
 
                     print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(iter, test_auc, test_user_auc))
-                    print('iter: {} ----> learning rate: {}. {} iters take time: {}'.format(iter, lr, conf['test_iter'], time.time()- start_))
+                    print('iter: {} ----> learning rate: {}. {} iters take time: {}'.format(iter, lr, test_iter, time.time()- start_))
+
                     sys.stdout.flush()
+                    loss_sum, accuracy_sum, aux_loss_sum= 0., 0., 0.
                     start_ = time.time()
+
                 if (iter % conf['lr_decay_steps']) == 0:
                     lr *= 0.5
 
             except Exception as e:
-                print("Error : {}".format(traceback.format_exc(e)))
+                print("training Error : {}".format(traceback.format_exc(e)))
                 print("End of training dataset")  # ==> "End of training dataset"
                 break
 
@@ -106,7 +106,7 @@ def train(conf, seed):
         test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 100)
         print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
-        print('Training done. Take time:{}'.format(time.time()-start_time))
+        print('Training done. Take time:{}'.format(time.time()-start_first))
 
 def test(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
