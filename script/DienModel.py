@@ -323,6 +323,8 @@ class DIENModel(BaseModel):
                                              self.noclk_item_his_eb[:, 1:, :],
                                              self.mask[:, 1:], stag="gru")
             self.aux_loss = aux_loss_1
+        else:
+            self.aux_loss = 0.
 
         # Attention layer
         with tf.name_scope('Attention_layer_1'):

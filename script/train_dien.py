@@ -31,9 +31,6 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             print("End of test dataset")  # ==> "End of test dataset"
             break
 
-    if nums <= 0:
-        return None, None, None, None, None
-
     test_auc = cal_auc(stored_arr)
     test_user_auc = cal_user_auc(stored_arr)
     accuracy_sum = accuracy_sum / nums
