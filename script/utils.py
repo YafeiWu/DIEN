@@ -167,8 +167,6 @@ def config(confpath, outdir=""):
     paras['n_mid'] = len(source_dicts[1])
     paras['n_cat'] = len(source_dicts[2])
     paras['n_tag'] = len(source_dicts[3])
-    if paras['enable_shuffle']:
-        paras['train_file'] = shuffle.shuffle_file(paras['train_file'])
     return paras
 
 def load_voc(filename):
