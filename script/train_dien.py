@@ -27,7 +27,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             for u, p ,t in zip(uid_1, prob_1, target_1):
                 stored_arr.append([u, p, t])
         except Exception as e :
-            # print("eval Error : {}".format(traceback.format_exc(e)))
+            print("eval Error : {}".format(traceback.format_exc(e)))
             print("End of test dataset")  # ==> "End of test dataset"
             break
 

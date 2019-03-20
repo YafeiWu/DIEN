@@ -58,7 +58,7 @@ class BaseModel(object):
             self.target_1 = tf.cast(feats_batches[:,0], dtype=tf.float32)
             self.target_ph = tf.cast(self.get_one_group(feats_batches, 'target'), dtype=tf.float32)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
-            # self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
+            self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
             self.mid_batch_ph = self.get_one_group(feats_batches, 'mid')
             self.cat_batch_ph = self.get_one_group(feats_batches, 'cate')
             self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
@@ -78,15 +78,14 @@ class BaseModel(object):
 
         # Embedding layer
         with tf.name_scope('Embedding_layer'):
-            # self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
-            # tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
-            # self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
+            self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
+            self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
             if self.enable_uid:
                 self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
                 tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
                 self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
-                # self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
-                self.user_batch_embedded = self.uid_batch_embedded
+                self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
             else:
                 self.user_batch_embedded = self.utype_batch_embedded
 
@@ -159,7 +158,7 @@ class BaseModel(object):
         feat_names = [
             ("target",2),
             ("uid",1),
-            # ("utype",1),
+            ("utype",1),
             ("mid",1),
             ("cate",1),
             ("tags",self.fixTagsLen),
@@ -324,7 +323,7 @@ class DIENModel(BaseModel):
                                              self.mask[:, 1:], stag="gru")
             self.aux_loss = aux_loss_1
         else:
-            self.aux_loss = 0.
+            self.aux_loss = tf.convert_to_tensor(0.)
 
         # Attention layer
         with tf.name_scope('Attention_layer_1'):

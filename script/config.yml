@@ -11,8 +11,8 @@ utype_embedding_dim: 4
 mid_embedding_dim: 32
 cat_embedding_dim: 4
 tag_embedding_dim: 2
-use_negsampling: False
-enable_uid: True
+use_negsampling: True
+enable_uid: False
 enable_tag: True
 hidden_size: 64
 attention_size: 64
