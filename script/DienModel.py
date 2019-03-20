@@ -242,16 +242,16 @@ class BaseModel(object):
         mask = tf.cast(mask, tf.float32)
         click_input_ = tf.concat([h_states, click_seq], -1)
         noclick_input_ = tf.concat([h_states, noclick_seq], -1)
-        click_prop_ = self.auxiliary_net(click_input_, stag = stag)[:, :, 0] * mask
-        noclick_prop_ = self.auxiliary_net(noclick_input_, stag = stag)[:, :, 0] * mask
-        # click_loss_ = - tf.reshape(tf.log(click_prop_), [-1, tf.shape(click_seq)[1]])
-        # noclick_loss_ = - tf.reshape(tf.log(1.0 - noclick_prop_), [-1, tf.shape(noclick_seq)[1]])
-        # loss_ = tf.reduce_mean(click_loss_ + noclick_loss_)
+        click_prop_ = self.auxiliary_net(click_input_, stag = stag)[:, :, 0]
+        noclick_prop_ = self.auxiliary_net(noclick_input_, stag = stag)[:, :, 0]
+        click_loss_ = - tf.reshape(tf.log(click_prop_), [-1, tf.shape(click_seq)[1]]) * mask
+        noclick_loss_ = - tf.reshape(tf.log(1.0 - noclick_prop_), [-1, tf.shape(noclick_seq)[1]]) * mask
+        loss_ = tf.reduce_mean(click_loss_ + noclick_loss_)
 
-        ### pairwise loss
-        pair_loss = -tf.reduce_mean(tf.sigmoid(click_prop_ - noclick_prop_))
-        negative_l2_loss = tf.reduce_mean(tf.multiply(noclick_prop_, noclick_prop_))
-        loss_ = tf.reduce_mean(pair_loss) + negative_l2_loss
+        # ### pairwise loss
+        # pair_loss = -tf.reduce_mean(tf.sigmoid(click_prop_ - noclick_prop_))
+        # negative_l2_loss = tf.reduce_mean(tf.multiply(noclick_prop_, noclick_prop_))
+        # loss_ = tf.reduce_mean(pair_loss) + negative_l2_loss
 
         return loss_
 

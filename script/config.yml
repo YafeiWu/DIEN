@@ -16,7 +16,7 @@ enable_uid: True
 enable_tag: True
 hidden_size: 64
 attention_size: 64
-batch_size: 1024
+batch_size: 128
 maxlen: 100
 minlen: 1
 feats_dim: 747
