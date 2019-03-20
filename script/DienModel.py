@@ -228,8 +228,8 @@ class BaseModel(object):
             self.loss = ctr_loss
             if self.use_negsampling:
                 self.loss += self.aux_loss
+                tf.summary.scalar('aux_loss', self.aux_loss)
 
-            tf.summary.scalar('aux_loss', self.aux_loss)
             tf.summary.scalar('loss', self.loss)
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
@@ -317,10 +317,12 @@ class DIENModel(BaseModel):
                                          scope="gru1")
             tf.summary.histogram('GRU_outputs', rnn_outputs)
 
-        aux_loss_1 = self.auxiliary_loss(rnn_outputs[:, :-1, :], self.item_his_eb[:, 1:, :],
-                                         self.noclk_item_his_eb[:, 1:, :],
-                                         self.mask[:, 1:], stag="gru")
-        self.aux_loss = aux_loss_1
+        if self.use_negsampling:
+
+            aux_loss_1 = self.auxiliary_loss(rnn_outputs[:, :-1, :], self.item_his_eb[:, 1:, :],
+                                             self.noclk_item_his_eb[:, 1:, :],
+                                             self.mask[:, 1:], stag="gru")
+            self.aux_loss = aux_loss_1
 
         # Attention layer
         with tf.name_scope('Attention_layer_1'):
