@@ -106,7 +106,7 @@ def train(conf, seed):
                 break
 
         #### test_batches=100 test for all, get per_user_auc
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 100)
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, None, 100)
         print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
         print('Training done. Take time:{}'.format(time.time()-start_first))
@@ -123,7 +123,7 @@ def test(conf, seed):
         latest_model = tf.train.latest_checkpoint(model_dir)
         model.restore(sess, latest_model)
         #### test_batches=100 test for all, get per_user_auc
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss, test_merged_summary = eval(sess, model, best_model_path, None, 100)
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, None, 100)
         print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 

@@ -250,7 +250,8 @@ class BaseModel(object):
 
         ### pairwise loss
         pair_loss = - tf.reshape(tf.log(tf.sigmoid(click_prop_-noclick_prop_)), [-1, tf.shape(click_seq)[1]]) * mask
-        loss_ = tf.reduce_mean(pair_loss)
+        negative_l2_loss = tf.reduce_mean(tf.multiply(noclick_prop_, noclick_prop_))
+        loss_ = tf.reduce_mean(pair_loss) + negative_l2_loss
 
         return loss_
 
