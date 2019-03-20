@@ -44,7 +44,7 @@ class BaseModel(object):
         self.enable_shuffle = conf['enable_shuffle']
         self.feats_dim = conf['feats_dim']
         self.negStartIdx = 6+2*self.maxLen+1 #207
-        self.use_negsampling = True
+        self.use_negsampling = conf['use_negsampling']
         self.fixTagsLen = conf['tags_length']
         self.feat_group = self.init_feat_group()
 
@@ -228,7 +228,8 @@ class BaseModel(object):
             self.loss = ctr_loss
             if self.use_negsampling:
                 self.loss += self.aux_loss
-                tf.summary.scalar('aux_loss', self.aux_loss)
+
+            tf.summary.scalar('aux_loss', self.aux_loss)
             tf.summary.scalar('loss', self.loss)
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 

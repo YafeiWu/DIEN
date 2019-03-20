@@ -27,7 +27,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             for u, p ,t in zip(uid_1, prob_1, target_1):
                 stored_arr.append([u, p, t])
         except Exception as e :
-            print("eval Error : {}".format(traceback.format_exc(e)))
+            # print("eval Error : {}".format(traceback.format_exc(e)))
             print("End of test dataset")  # ==> "End of test dataset"
             break
 
@@ -86,7 +86,7 @@ def train(conf, seed):
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- train_aux_loss: %.4f' % \
                                           (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
 
-                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter, test_batches=5)
+                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter, test_batches=100)
                     print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
                           (iter, test_loss, test_accuracy, test_aux_loss))
 
