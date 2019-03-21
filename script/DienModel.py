@@ -119,15 +119,15 @@ class BaseModel(object):
 
             if self.use_negsampling:
                 self.noclk_mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.noclk_mid_batch_ph)
-                self.noclk_mid_his_batch_embedded = self.fill_noclkseq(self.noclk_mid_his_batch_embedded, self.mid_embedding_dim)
+                # self.noclk_mid_his_batch_embedded = self.fill_noclkseq(self.noclk_mid_his_batch_embedded, self.mid_embedding_dim)
 
                 self.noclk_cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.noclk_cat_batch_ph)
-                self.noclk_cat_his_batch_embedded = self.fill_noclkseq(self.noclk_cat_his_batch_embedded, self.cat_embedding_dim)
+                # self.noclk_cat_his_batch_embedded = self.fill_noclkseq(self.noclk_cat_his_batch_embedded, self.cat_embedding_dim)
 
                 if self.enable_tag:
                     self.noclk_tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.noclk_tags_batch_ph)
                     self.noclk_tags_his_batch_embedded = self.reshape_multiseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.negSeqLen)
-                    self.noclk_tags_his_batch_embedded = self.fill_noclkseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim * self.negSeqLen)
+                    # self.noclk_tags_his_batch_embedded = self.fill_noclkseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim * self.negSeqLen)
 
                     self.noclk_item_his_eb = tf.concat(
                         [self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded, self.noclk_tags_his_batch_embedded], 2)
@@ -138,6 +138,7 @@ class BaseModel(object):
                 # self.noclk_his_eb = tf.concat([self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], -1) #shape(batch_size, maxLen, negSeqLen, cat_dim+mid_dim)
                 # self.noclk_his_eb_sum_1 = tf.reduce_sum(self.noclk_his_eb, 2)
                 # self.noclk_his_eb_sum = tf.reduce_sum(self.noclk_his_eb_sum_1, 1)
+                self.item_list_eb = self.noclk_item_his_eb
 
     def fill_noclkseq(self, eb, eb_dim):
         eb_1 = tf.expand_dims(eb, 1)
@@ -156,20 +157,20 @@ class BaseModel(object):
 
     def init_feat_group(self):
         feat_names = [
-            ("target",2),
-            ("uid",1),
-            ("utype",1),
-            ("mid",1),
-            ("cate",1),
-            ("tags",self.fixTagsLen),
-            ("clkseq_len",1),
-            ("clkmid_seq",self.maxLen),
-            ("clkcate_seq",self.maxLen),
-            ("clktags_seq",self.maxLen*self.fixTagsLen),
-            ("noclkseq_len",1),
-            ("noclkmid_seq",self.negSeqLen),
-            ("noclkcate_seq",self.negSeqLen),
-            ("noclktags_seq",self.negSeqLen*self.fixTagsLen)
+            ("target",2), ## 0:2
+            ("uid",1), ## 2
+            ("utype",1), ## 3
+            ("mid",1), ## 4
+            ("cate",1), ## 5
+            ("tags",self.fixTagsLen), ## 6:11
+            ("clkseq_len",1), ## 11
+            ("clkmid_seq",self.maxLen), ## 12:112
+            ("clkcate_seq",self.maxLen), ## 112:212
+            ("clktags_seq",self.maxLen*self.fixTagsLen), ## 212:712
+            ("noclkseq_len",1), ## 713
+            ("noclkmid_seq",self.negSeqLen), ## 714:719
+            ("noclkcate_seq",self.negSeqLen), ## 719:824
+            ("noclktags_seq",self.negSeqLen*self.fixTagsLen) ## 824:849
         ]
         feat_group = {}
         cur_offset = 0
@@ -221,10 +222,19 @@ class BaseModel(object):
         self.y_hat = tf.nn.softmax(dnn3) + 0.00000001
 
         with tf.name_scope('Metrics'):
-            # Cross-entropy loss and optimizer initialization
-            ctr_loss = - tf.reduce_mean(tf.log(self.y_hat) * self.target_ph)
-            tf.summary.scalar('ctr_loss', ctr_loss)
-            self.loss = ctr_loss
+            # # Cross-entropy loss and optimizer initialization
+            # ctr_loss = - tf.reduce_mean(tf.log(self.y_hat) * self.target_ph)
+            # tf.summary.scalar('ctr_loss', ctr_loss)
+            # self.loss = ctr_loss
+            # Pair-wise loss and optimizer initialization
+            pos_hat_ = tf.expand_dims(self.y_hat[:,0,1],1)
+            neg_hat = self.y_hat[:,1: tf.shape(self.y_hat)[1],1]
+            pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1],1])
+
+            pair_loss = - tf.reshape(tf.sigmoid(pos_hat-neg_hat), [-1, tf.shape(neg_hat)[1]])
+            tf.summary.scalar('pair_loss', pair_loss)
+            self.loss = pair_loss
+
             if self.use_negsampling:
                 self.loss += self.aux_loss
                 tf.summary.scalar('aux_loss', self.aux_loss)
@@ -338,5 +348,14 @@ class DIENModel(BaseModel):
                                                      scope="gru2")
             tf.summary.histogram('GRU2_Final_State', final_state2)
 
-        inp = tf.concat([self.user_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, final_state2], 1)
-        self.build_fcn_net(inp, use_dice=True)
+        with tf.name_scope('expand4listwise'):
+            u_his_inp = tf.concat([self.user_batch_embedded, self.item_his_eb_sum, final_state2], 1)
+            u_now_inp = tf.concat(self.item_list_eb, self.item_list_eb * self.item_his_eb_sum, 2)
+            u_his_inp_exp = tf.expand_dims(u_his_inp, 1)
+            u_his_inp_exp = tf.tile(u_his_inp_exp, multiples=[1, tf.shape(u_now_inp)[1], 1])
+            fcn_inp = tf.concat(u_now_inp, u_his_inp_exp, 2)
+
+            self.build_fcn_net(fcn_inp, use_dice=True)
+
+        # inp = tf.concat([self.user_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, final_state2], 1)
+        # self.build_fcn_net(fcn_inp, use_dice=True)
