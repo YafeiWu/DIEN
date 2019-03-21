@@ -11,6 +11,7 @@ import os
 import sys
 import time
 from feature_def import UserSeqFeature
+from random import randint
 
 
 def base64_to_int32(base64string):
@@ -40,13 +41,15 @@ class BaseModel(object):
         self.batch_size = conf['batch_size']
         self.epochs = conf['epochs']
         self.maxLen = conf['maxlen']
+        self.targetLen = conf['targetLen']
         self.negSeqLen = conf['negseq_length']
         self.enable_shuffle = conf['enable_shuffle']
         self.feats_dim = conf['feats_dim']
         self.negStartIdx = 6+2*self.maxLen+1 #207
         self.use_negsampling = conf['use_negsampling']
         self.fixTagsLen = conf['tags_length']
-        self.feat_group = self.init_feat_group()
+        self.feat_group = self.featGroup()
+        self.item_feat_dim = self.mid_embedding_dim + self.cat_embedding_dim
 
         with tf.name_scope('Inputs'):
             self.for_training = tf.placeholder_with_default(tf.constant(False),shape=(),name="training_flag")
@@ -55,37 +58,36 @@ class BaseModel(object):
             test_batches = self.prepare_from_base64(self.test_data, for_training=False)
             feats_batches = tf.cond(self.for_training, lambda:train_batches, lambda:test_batches)
 
-            self.target_1 = tf.cast(feats_batches[:,0], dtype=tf.float32)
-            self.target_ph = tf.cast(self.get_one_group(feats_batches, 'target'), dtype=tf.float32)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
-            self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
-            self.mid_batch_ph = self.get_one_group(feats_batches, 'mid')
-            self.cat_batch_ph = self.get_one_group(feats_batches, 'cate')
+            # self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
+            self.target_len = self.get_one_group(feats_batches, 'target_len')
+            self.mid_batch_ph = self.get_one_group(feats_batches, 'target_mids')
+            self.cat_batch_ph = self.get_one_group(feats_batches, 'target_cats')
             self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
             self.mid_his_batch_ph = self.get_one_group(feats_batches, 'clkmid_seq')
             self.cat_his_batch_ph = self.get_one_group(feats_batches, 'clkcate_seq')
-            self.noclk_seq_length = self.get_one_group(feats_batches, 'noclkseq_len')
-            self.noclk_mid_batch_ph = self.get_one_group(feats_batches, 'noclkmid_seq')
-            self.noclk_cat_batch_ph = self.get_one_group(feats_batches, 'noclkcate_seq')
 
             if self.enable_tag:
-                self.tags_batch_ph = self.get_one_group(feats_batches, 'tags')
+                self.tags_batch_ph = self.get_one_group(feats_batches, 'target_tags')
                 self.tags_his_batch_ph = self.get_one_group(feats_batches, 'clktags_seq')
-                self.noclk_tags_batch_ph = self.get_one_group(feats_batches, 'noclktags_seq')
+
+            self.target_mask = np.zeros((self.batch_size, self.targetLen), dtype=np.float32)
+            self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
 
             self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
 
         # Embedding layer
         with tf.name_scope('Embedding_layer'):
-            self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
-            tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
-            self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
+            # self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            # tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
+            # self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
             if self.enable_uid:
                 self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
                 tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
                 self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
-                self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
+                # self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
+                self.user_batch_embedded = self.uid_batch_embedded
             else:
                 self.user_batch_embedded = self.utype_batch_embedded
 
@@ -100,19 +102,20 @@ class BaseModel(object):
             self.cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_his_batch_ph)
 
             if self.enable_tag:
+                self.item_feat_dim += self.tag_embedding_dim * self.fixTagsLen
                 self.tag_embeddings_var = tf.get_variable("tag_embedding_var", [self.n_tag, self.tag_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
                 tf.summary.histogram('tag_embeddings_var', self.tag_embeddings_var)
 
                 self.tags_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_batch_ph)
-                self.tags_batch_embedded = tf.reshape(self.tags_batch_embedded, [-1,self.tag_embedding_dim*self.fixTagsLen])
+                self.tags_batch_embedded = tf.reshape(self.tags_batch_embedded, [-1, self.tag_embedding_dim*self.fixTagsLen])
 
                 self.tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_his_batch_ph)
                 self.tags_his_batch_embedded = self.reshape_multiseq(self.tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.maxLen)
 
-                self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded, self.tags_batch_embedded], 1)
+                self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded, self.tags_batch_embedded], 2)
                 self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded, self.tags_his_batch_embedded], 2)
             else:
-                self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded], 1)
+                self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded], 2)
                 self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded], 2)
 
             self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
@@ -135,11 +138,6 @@ class BaseModel(object):
                     self.noclk_item_his_eb = tf.concat(
                         [self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], 2)
 
-                # self.noclk_his_eb = tf.concat([self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], -1) #shape(batch_size, maxLen, negSeqLen, cat_dim+mid_dim)
-                # self.noclk_his_eb_sum_1 = tf.reduce_sum(self.noclk_his_eb, 2)
-                # self.noclk_his_eb_sum = tf.reduce_sum(self.noclk_his_eb_sum_1, 1)
-                self.item_list_eb = self.noclk_item_his_eb
-
     def fill_noclkseq(self, eb, eb_dim):
         eb_1 = tf.expand_dims(eb, 1)
         eb_2 = tf.tile(eb_1, multiples=[1, self.maxLen/tf.shape(eb)[1], 1, 1])
@@ -155,7 +153,7 @@ class BaseModel(object):
         return eb_2
 
 
-    def init_feat_group(self):
+    def featGroupV0(self):
         feat_names = [
             ("target",2), ## 0:2
             ("uid",1), ## 2
@@ -167,17 +165,38 @@ class BaseModel(object):
             ("clkmid_seq",self.maxLen), ## 12:112
             ("clkcate_seq",self.maxLen), ## 112:212
             ("clktags_seq",self.maxLen*self.fixTagsLen), ## 212:712
-            ("noclkseq_len",1), ## 713
-            ("noclkmid_seq",self.negSeqLen), ## 714:719
-            ("noclkcate_seq",self.negSeqLen), ## 719:824
-            ("noclktags_seq",self.negSeqLen*self.fixTagsLen) ## 824:849
+            ("noclkseq_len",1), ## 712
+            ("noclkmid_seq",self.negSeqLen), ## 713:718
+            ("noclkcate_seq",self.negSeqLen), ## 718:723
+            ("noclktags_seq",self.negSeqLen*self.fixTagsLen) ## 723:748
         ]
         feat_group = {}
         cur_offset = 0
         for feat_name, feat_width in feat_names:
             feat_group[feat_name] = UserSeqFeature(fname=feat_name,foffset=cur_offset,fends=cur_offset+feat_width,fwidth=feat_width)
             cur_offset += feat_width
-            print("init_feat_group:\t{}".format(feat_group[feat_name]))
+            print("featGroupV0:\t{}".format(feat_group[feat_name]))
+        return feat_group
+
+    def featGroup(self):
+        feat_names = [
+            ("uid", 1), ## 0
+            # ("utype", 1), ## 1:11
+            ("target_len", 1), ## 1:11
+            ("target_mids", self.targetLen), ## 3
+            ("target_cats", self.targetLen), ## 4
+            ("target_tags", self.targetLen * self.fixTagsLen), ## 5
+            ("clkseq_len", 1), ## 11
+            ("clkmid_seq", self.maxLen), ## 12:112
+            ("clkcate_seq", self.maxLen), ## 112:212
+            ("clktags_seq", self.maxLen*self.fixTagsLen), ## 212:712
+        ]
+        feat_group = {}
+        cur_offset = 0
+        for feat_name, feat_width in feat_names:
+            feat_group[feat_name] = UserSeqFeature(fname=feat_name,foffset=cur_offset,fends=cur_offset+feat_width,fwidth=feat_width)
+            cur_offset += feat_width
+            print("featGroup:\t{}".format(feat_group[feat_name]))
         return feat_group
 
     def get_one_group(self, feats_batches, fname):
@@ -227,11 +246,12 @@ class BaseModel(object):
             # tf.summary.scalar('ctr_loss', ctr_loss)
             # self.loss = ctr_loss
             # Pair-wise loss and optimizer initialization
-            pos_hat_ = tf.expand_dims(self.y_hat[:,0,1],1)
-            neg_hat = self.y_hat[:,1: tf.shape(self.y_hat)[1],1]
-            pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1],1])
+            pos_hat_ = tf.expand_dims(self.y_hat[:, 0, 1],1)
+            neg_hat = self.y_hat[:, 1: tf.shape(self.y_hat)[1], 1]
+            pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1]])
+            pair_prop = tf.sigmoid(pos_hat-neg_hat)
 
-            pair_loss = - tf.reshape(tf.sigmoid(pos_hat-neg_hat), [-1, tf.shape(neg_hat)[1]])
+            pair_loss = tf.reduce_mean( - tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask )
             tf.summary.scalar('pair_loss', pair_loss)
             self.loss = pair_loss
 
@@ -243,13 +263,18 @@ class BaseModel(object):
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
             # Accuracy metric
-            self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat), self.target_ph), tf.float32))
+            target_ = tf.ones(shape=(tf.shape(neg_hat)[0], tf.shape(neg_hat)[1]), dtype=np.float32)
+            self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(pair_prop), target_), tf.float32))
             tf.summary.scalar('accuracy', self.accuracy)
 
         self.merged = tf.summary.merge_all()
 
-    def auxiliary_loss(self, h_states, click_seq, noclick_seq, mask, stag = None):
+    def auxiliary_loss(self, h_states, click_seq, mask, stag = None):
         mask = tf.cast(mask, tf.float32)
+        r_slice = tf.convert_to_tensor(randint(0, self.batch_size))
+        head_seq = tf.slice(click_seq, [r_slice, 0, 0], [tf.shape(click_seq)[0]-r_slice, tf.shape(click_seq)[1], tf.shape(click_seq)[2]])
+        tail_seq = tf.slice(click_seq, [0, 0, 0], [r_slice, tf.shape(click_seq)[1], tf.shape(click_seq)[2]])
+        noclick_seq =  tf.reshape(tf.concat([head_seq, tail_seq], 0),[self.batch_size, self.maxLen-1, self.item_feat_dim])
         click_input_ = tf.concat([h_states, click_seq], -1)
         noclick_input_ = tf.concat([h_states, noclick_seq], -1)
         click_prop_ = self.auxiliary_net(click_input_, stag = stag)[:, :, 0]
@@ -259,9 +284,8 @@ class BaseModel(object):
         # loss_ = tf.reduce_mean(click_loss_ + noclick_loss_)
 
         ### pairwise loss
-        pair_loss = - tf.reshape(tf.sigmoid(click_prop_-noclick_prop_), [-1, tf.shape(click_seq)[1]]) * mask
-        negative_l2_loss = tf.reduce_mean(tf.multiply(noclick_prop_, noclick_prop_))
-        loss_ = tf.reduce_mean(pair_loss) + negative_l2_loss
+        pair_loss = - tf.reshape(tf.log(tf.sigmoid(click_prop_-noclick_prop_)), [-1, tf.shape(click_seq)[1]]) * mask
+        loss_ = tf.reduce_mean(pair_loss)
 
         return loss_
 
@@ -329,7 +353,6 @@ class DIENModel(BaseModel):
         if self.use_negsampling:
 
             aux_loss_1 = self.auxiliary_loss(rnn_outputs[:, :-1, :], self.item_his_eb[:, 1:, :],
-                                             self.noclk_item_his_eb[:, 1:, :],
                                              self.mask[:, 1:], stag="gru")
             self.aux_loss = aux_loss_1
         else:
@@ -350,12 +373,14 @@ class DIENModel(BaseModel):
 
         with tf.name_scope('expand4listwise'):
             u_his_inp = tf.concat([self.user_batch_embedded, self.item_his_eb_sum, final_state2], 1)
-            u_now_inp = tf.concat(self.item_list_eb, self.item_list_eb * self.item_his_eb_sum, 2)
+            item_his_eb_sum_  = tf.expand_dims(self.item_his_eb_sum, 1)
+            item_his_eb_sum_ = tf.tile(item_his_eb_sum_, multiples=[1, tf.shape(self.item_eb)[1], 1])
+            u_now_inp = tf.concat([self.item_eb, self.item_eb * item_his_eb_sum_], 2)
             u_his_inp_exp = tf.expand_dims(u_his_inp, 1)
             u_his_inp_exp = tf.tile(u_his_inp_exp, multiples=[1, tf.shape(u_now_inp)[1], 1])
-            fcn_inp = tf.concat(u_now_inp, u_his_inp_exp, 2)
+            fcn_inp = tf.concat([u_now_inp, u_his_inp_exp], 2)
 
             self.build_fcn_net(fcn_inp, use_dice=True)
 
         # inp = tf.concat([self.user_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, final_state2], 1)
-        # self.build_fcn_net(fcn_inp, use_dice=True)
+        # self.build_fcn_net(inp, use_dice=True)
