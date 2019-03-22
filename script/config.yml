@@ -5,9 +5,8 @@ uid_voc: "data/uid_voc.json"
 mid_voc: "data/item_voc.json"
 cat_voc: "data/cate_voc.json"
 tag_voc: "data/tag_voc.json"
-item_info: "data/item_info.json"
 n_utype: 20
-batch_size: 128
+batch_size: 1024
 uid_embedding_dim: 32
 utype_embedding_dim: 4
 mid_embedding_dim: 32
@@ -31,5 +30,5 @@ save_iter: 100
 epochs: 2
 best_model_path: "best_model/ckpt"
 logdir: "logdir"
-max_steps: 1000
-lr_decay_steps: 300
+max_steps: 5000
+lr_decay_steps: 1000

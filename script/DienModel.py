@@ -59,8 +59,9 @@ class BaseModel(object):
             feats_batches = tf.cond(self.for_training, lambda:train_batches, lambda:test_batches)
 
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
-            # self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
+            self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
             self.target_len = self.get_one_group(feats_batches, 'target_len')
+            self.target_weight = self.get_one_group(feats_batches, "target_weight")
             self.mid_batch_ph = self.get_one_group(feats_batches, 'target_mids')
             self.cat_batch_ph = self.get_one_group(feats_batches, 'target_cats')
             self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
@@ -79,15 +80,14 @@ class BaseModel(object):
 
         # Embedding layer
         with tf.name_scope('Embedding_layer'):
-            # self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
-            # tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
-            # self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
+            self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
+            self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
             if self.enable_uid:
                 self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
                 tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
                 self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
-                # self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
-                self.user_batch_embedded = self.uid_batch_embedded
+                self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
             else:
                 self.user_batch_embedded = self.utype_batch_embedded
 
@@ -119,24 +119,6 @@ class BaseModel(object):
                 self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded], 2)
 
             self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
-
-            if self.use_negsampling:
-                self.noclk_mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.noclk_mid_batch_ph)
-                # self.noclk_mid_his_batch_embedded = self.fill_noclkseq(self.noclk_mid_his_batch_embedded, self.mid_embedding_dim)
-
-                self.noclk_cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.noclk_cat_batch_ph)
-                # self.noclk_cat_his_batch_embedded = self.fill_noclkseq(self.noclk_cat_his_batch_embedded, self.cat_embedding_dim)
-
-                if self.enable_tag:
-                    self.noclk_tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.noclk_tags_batch_ph)
-                    self.noclk_tags_his_batch_embedded = self.reshape_multiseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.negSeqLen)
-                    # self.noclk_tags_his_batch_embedded = self.fill_noclkseq(self.noclk_tags_his_batch_embedded, self.tag_embedding_dim * self.negSeqLen)
-
-                    self.noclk_item_his_eb = tf.concat(
-                        [self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded, self.noclk_tags_his_batch_embedded], 2)
-                else:
-                    self.noclk_item_his_eb = tf.concat(
-                        [self.noclk_mid_his_batch_embedded, self.noclk_cat_his_batch_embedded], 2)
 
     def fill_noclkseq(self, eb, eb_dim):
         eb_1 = tf.expand_dims(eb, 1)
@@ -181,8 +163,9 @@ class BaseModel(object):
     def featGroup(self):
         feat_names = [
             ("uid", 1), ## 0
-            # ("utype", 1), ## 1:11
+            ("utype", 1), ## 1:11
             ("target_len", 1), ## 1:11
+            ("target_weight", self.targetLen), ## 1:11
             ("target_mids", self.targetLen), ## 3
             ("target_cats", self.targetLen), ## 4
             ("target_tags", self.targetLen * self.fixTagsLen), ## 5
