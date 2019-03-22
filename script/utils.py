@@ -392,11 +392,17 @@ def din_attention(query, facts, attention_size, mask, stag='null', mode='SUM', s
     return output
 
 def din_fcn_attention(query, facts, attention_size, mask, stag='null', mode='SUM', softmax_stag=1, time_major=False, return_alphas=False, forCnn=False):
+    query_size = query.get_shape().as_list()[1]
+    rnn_seq_size = facts.get_shape().as_list()[1]
     if isinstance(facts, tuple):
         # In case of Bi-RNN, concatenate the forward and the backward RNN outputs.
         facts = tf.concat(facts, 2)
     if len(facts.get_shape().as_list()) == 2:
         facts = tf.expand_dims(facts, 1)
+        rnn_seq_size = 1
+    if len(query.get_shape().as_list()) == 3:
+        facts = tf.expand_dims(facts,1)
+        facts = tf.tile(facts, [1, tf.shape(query)[1], 1, 1])
 
     if time_major:
         # (T,B,D) => (B,T,D)
@@ -404,23 +410,24 @@ def din_fcn_attention(query, facts, attention_size, mask, stag='null', mode='SUM
     # Trainable parameters
     mask = tf.equal(mask, tf.ones_like(mask))
     facts_size = facts.get_shape().as_list()[-1]  # D value - hidden size of the RNN layer
-    querry_size = query.get_shape().as_list()[-1]
     query = tf.layers.dense(query, facts_size, activation=None, name='f1' + stag)
     query = prelu(query)
-    queries = tf.tile(query, [1, tf.shape(facts)[1]])
+    queries = tf.tile(query, [1, 1, tf.shape(facts)[2]])
     queries = tf.reshape(queries, tf.shape(facts))
     din_all = tf.concat([queries, facts, queries-facts, queries*facts], axis=-1)
     d_layer_1_all = tf.layers.dense(din_all, 80, activation=tf.nn.sigmoid, name='f1_att' + stag)
     d_layer_2_all = tf.layers.dense(d_layer_1_all, 40, activation=tf.nn.sigmoid, name='f2_att' + stag)
     d_layer_3_all = tf.layers.dense(d_layer_2_all, 1, activation=None, name='f3_att' + stag)
-    d_layer_3_all = tf.reshape(d_layer_3_all, [-1, 1, tf.shape(facts)[1]])
+    d_layer_3_all = tf.reshape(d_layer_3_all, [-1, query_size, 1, rnn_seq_size])
     scores = d_layer_3_all
     # Mask
     # key_masks = tf.sequence_mask(facts_length, tf.shape(facts)[1])   # [B, T]
     key_masks = tf.expand_dims(mask, 1) # [B, 1, T]
+    key_masks = tf.expand_dims(key_masks, 1) # [B, 1, 1, T]
+    key_masks = tf.tile(key_masks, [1, query_size, 1, 1]) # [B, Q_LEN, 1, T]
     paddings = tf.ones_like(scores) * (-2 ** 32 + 1)
     if not forCnn:
-        scores = tf.where(key_masks, scores, paddings)  # [B, 1, T]
+        scores = tf.where(key_masks, scores, paddings)  # [B, Q_LEN, 1, T]
 
     # Scale
     # scores = scores / (facts.get_shape().as_list()[-1] ** 0.5)
@@ -434,7 +441,7 @@ def din_fcn_attention(query, facts, attention_size, mask, stag='null', mode='SUM
         output = tf.matmul(scores, facts)  # [B, 1, H]
         # output = tf.reshape(output, [-1, tf.shape(facts)[-1]])
     else:
-        scores = tf.reshape(scores, [-1, tf.shape(facts)[1]])
+        scores = tf.reshape(scores, [-1, query_size, rnn_seq_size])
         output = facts * tf.expand_dims(scores, -1)
         output = tf.reshape(output, tf.shape(facts))
     if return_alphas:

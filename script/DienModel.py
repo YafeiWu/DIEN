@@ -107,7 +107,7 @@ class BaseModel(object):
                 tf.summary.histogram('tag_embeddings_var', self.tag_embeddings_var)
 
                 self.tags_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_batch_ph)
-                self.tags_batch_embedded = tf.reshape(self.tags_batch_embedded, [-1, self.tag_embedding_dim*self.fixTagsLen])
+                self.tags_batch_embedded = self.reshape_multiseq(self.tags_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.targetLen)
 
                 self.tags_his_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_his_batch_ph)
                 self.tags_his_batch_embedded = self.reshape_multiseq(self.tags_his_batch_embedded, self.tag_embedding_dim, self.fixTagsLen, self.maxLen)
@@ -172,7 +172,7 @@ class BaseModel(object):
             ("clkseq_len", 1), ## 11
             ("clkmid_seq", self.maxLen), ## 12:112
             ("clkcate_seq", self.maxLen), ## 112:212
-            ("clktags_seq", self.maxLen*self.fixTagsLen), ## 212:712
+            ("clktags_seq", self.maxLen * self.fixTagsLen), ## 212:712
         ]
         feat_group = {}
         cur_offset = 0
@@ -348,17 +348,38 @@ class DIENModel(BaseModel):
             tf.summary.histogram('alpha_outputs', alphas)
 
         with tf.name_scope('rnn_2'):
-            rnn_outputs2, final_state2 = dynamic_rnn(VecAttGRUCell(self.hidden_size), inputs=rnn_outputs,
-                                                     att_scores = tf.expand_dims(alphas, -1),
-                                                     sequence_length=self.seq_len_ph, dtype=tf.float32, parallel_iterations=256,
-                                                     scope="gru2")
+            idx_ = tf.constant(0)
+            rnn_outputs2_list = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+            final_state2_list = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+
+            def target_loop_cond(idx_, rnn_outputs2_list, final_state2_list):
+                return idx_ < self.targetLen
+
+            def target_loop_body(idx_, rnn_outputs2_list, final_state2_list):
+                rnn_outputs2_, final_state2_ = \
+                    dynamic_rnn(VecAttGRUCell(self.hidden_size), inputs=rnn_outputs,
+                                att_scores = tf.expand_dims(alphas[:,idx_,:], -1),
+                                sequence_length=self.seq_len_ph, dtype=tf.float32, parallel_iterations=256,
+                                scope="gru2")
+                rnn_outputs2_list = rnn_outputs2_list.write(idx_, rnn_outputs2_)
+                final_state2_list = final_state2_list.write(idx_, final_state2_)
+
+                return idx_+1, rnn_outputs2_list, final_state2_list
+
+
+            _, rnn_outputs2, final_state2 = tf.while_loop(target_loop_cond, target_loop_body,
+                                                                    [idx_ , rnn_outputs2_list, final_state2_list])
+            rnn_outputs2 = tf.transpose(rnn_outputs2.stack(), [1,0,2,3])
+            final_state2 = tf.transpose(final_state2.stack(), [1,0,2])
+
+            tf.summary.histogram('GRU2_rnn_outputs2', rnn_outputs2)
             tf.summary.histogram('GRU2_Final_State', final_state2)
 
         with tf.name_scope('expand4listwise'):
-            u_his_inp = tf.concat([self.user_batch_embedded, self.item_his_eb_sum, final_state2], 1)
+            u_his_inp = tf.concat([self.user_batch_embedded, self.item_his_eb_sum], 1)
             item_his_eb_sum_  = tf.expand_dims(self.item_his_eb_sum, 1)
             item_his_eb_sum_ = tf.tile(item_his_eb_sum_, multiples=[1, tf.shape(self.item_eb)[1], 1])
-            u_now_inp = tf.concat([self.item_eb, self.item_eb * item_his_eb_sum_], 2)
+            u_now_inp = tf.concat([self.item_eb, self.item_eb * item_his_eb_sum_, final_state2], 2)
             u_his_inp_exp = tf.expand_dims(u_his_inp, 1)
             u_his_inp_exp = tf.tile(u_his_inp_exp, multiples=[1, tf.shape(u_now_inp)[1], 1])
             fcn_inp = tf.concat([u_now_inp, u_his_inp_exp], 2)
