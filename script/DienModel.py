@@ -58,10 +58,10 @@ class BaseModel(object):
             test_batches = self.prepare_from_base64(self.test_data, for_training=False)
             feats_batches = tf.cond(self.for_training, lambda:train_batches, lambda:test_batches)
 
+            self.target_weight = tf.cast(self.get_one_group(feats_batches, 'target_weight'), dtype=tf.float32)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
             self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
             self.target_len = self.get_one_group(feats_batches, 'target_len')
-            self.target_weight = self.get_one_group(feats_batches, "target_weight")
             self.mid_batch_ph = self.get_one_group(feats_batches, 'target_mids')
             self.cat_batch_ph = self.get_one_group(feats_batches, 'target_cats')
             self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
@@ -72,8 +72,7 @@ class BaseModel(object):
                 self.tags_batch_ph = self.get_one_group(feats_batches, 'target_tags')
                 self.tags_his_batch_ph = self.get_one_group(feats_batches, 'clktags_seq')
 
-            self.target_mask = np.zeros((self.batch_size, self.targetLen), dtype=np.float32)
-            self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
+            self.target_mask = tf.tile(self.target_weight[:,0:1], [1, self.targetLen-1]) - self.target_weight[:,1:]
 
             self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
@@ -225,7 +224,7 @@ class BaseModel(object):
 
         with tf.name_scope('Metrics'):
             # # Cross-entropy loss and optimizer initialization
-            # ctr_loss = - tf.reduce_mean(tf.log(self.y_hat) * self.target_ph)
+            # ctr_loss = - tf.reduce_mean(tf.log(self.y_hat) * self.target_weight)
             # tf.summary.scalar('ctr_loss', ctr_loss)
             # self.loss = ctr_loss
             # Pair-wise loss and optimizer initialization
@@ -297,7 +296,7 @@ class BaseModel(object):
         return loss, accuracy, aux_loss, merged
 
     def calculate(self, sess, inps):
-        probs, targets, uids, loss, accuracy, aux_loss = sess.run([self.y_hat, self.target_ph, self.uid_batch_ph, self.loss, self.accuracy, self.aux_loss], feed_dict={
+        probs, targets, uids, loss, accuracy, aux_loss = sess.run([self.y_hat, self.target_weight, self.uid_batch_ph, self.loss, self.accuracy, self.aux_loss], feed_dict={
             self.for_training: inps[0],
             self.lr: inps[1]
         })

@@ -15,6 +15,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     accuracy_sum = 0.
     aux_loss_sum = 0.
     stored_arr = []
+    test_user_auc = None
     for nums in range(1,test_batches+1):
         try:
             prob, target, uids, loss, acc, aux_loss = model.calculate(sess, [False, 0.0])
@@ -32,7 +33,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             break
 
     test_auc = cal_auc(stored_arr)
-    test_user_auc = cal_user_auc(stored_arr)
+    # test_user_auc = cal_user_auc(stored_arr)
     accuracy_sum = accuracy_sum / nums
     loss_sum = loss_sum / nums
     aux_loss_sum = aux_loss_sum / nums
