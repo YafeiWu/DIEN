@@ -96,7 +96,8 @@ def train(conf, seed):
                     print('iter: {} ----> learning rate: {}. {} iters take time: {}'.format(iter, lr, test_iter, time.time()- start_))
 
                     sys.stdout.flush()
-                    loss_sum, pair_acc_sum, aux_loss_sum= 0., 0., 0.
+                    loss_sum,  aux_loss_sum, top1_acc_sum, pair_acc_sum,= 0., 0., 0., 0.
+                    test_loss_sum, test_aux_loss_sum, test_top1_acc_sum, test_pair_acc_sum, = 0., 0., 0., 0.
                     start_ = time.time()
 
                 if (iter % conf['lr_decay_steps']) == 0:

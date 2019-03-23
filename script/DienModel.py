@@ -13,7 +13,7 @@ import time
 from feature_def import UserSeqFeature
 from random import randint
 
-
+MinProbability = 0.00000001
 def base64_to_int32(base64string):
     decoded = tf.decode_base64(base64string)
     record = tf.decode_raw(decoded, tf.int32)
@@ -225,7 +225,7 @@ class BaseModel(object):
         else:
             dnn2 = prelu(dnn2, 'prelu2')
         dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
-        self.y_hat = tf.nn.softmax(dnn3) + 0.00000001
+        self.y_hat = tf.nn.softmax(dnn3) + MinProbability
         self.y_hat = self.y_hat[:,:,0] ### the 1st of 2d-softmax means positive probability
 
         with tf.name_scope('Metrics'):
@@ -237,7 +237,7 @@ class BaseModel(object):
             pos_hat_ = tf.expand_dims(self.y_hat[:, 0], 1)
             neg_hat = self.y_hat[:, 1:tf.shape(self.y_hat)[1]]
             pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1]])
-            pair_prop = tf.sigmoid(pos_hat-neg_hat) + 0.00000001
+            pair_prop = tf.sigmoid(pos_hat-neg_hat) + MinProbability
             pair_loss_ = -tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask
 
             pair_loss = tf.reduce_mean(pair_loss_ * self.target_weight)
@@ -277,7 +277,7 @@ class BaseModel(object):
         # loss_ = tf.reduce_mean(click_loss_ + noclick_loss_)
 
         ### pairwise loss
-        pair_prop = tf.sigmoid(click_prop_ - noclick_prop_) + 0.00000001 ### 1 negative sample for each positive sample
+        pair_prop = tf.sigmoid(click_prop_ - noclick_prop_) + MinProbability ### 1 negative sample for each positive sample
         pair_loss = - tf.reshape(tf.log(pair_prop), [-1, tf.shape(click_seq)[1]]) * mask
         loss_ = tf.reduce_mean(pair_loss)
 
@@ -290,7 +290,7 @@ class BaseModel(object):
         dnn2 = tf.layers.dense(dnn1, 50, activation=None, name='f2' + stag, reuse=tf.AUTO_REUSE)
         dnn2 = tf.nn.sigmoid(dnn2)
         dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3' + stag, reuse=tf.AUTO_REUSE)
-        y_hat = tf.nn.softmax(dnn3) + 0.00000001
+        y_hat = tf.nn.softmax(dnn3) + MinProbability
         return y_hat
 
     def train(self, sess, inps):
