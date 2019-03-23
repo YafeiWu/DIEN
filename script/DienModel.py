@@ -238,9 +238,9 @@ class BaseModel(object):
             neg_hat = self.y_hat[:, 1:tf.shape(self.y_hat)[1]]
             pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1]])
             pair_prop = tf.sigmoid(pos_hat-neg_hat) + 0.00000001
-            pair_prop = -tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask
+            pair_loss_ = -tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask
 
-            pair_loss = tf.reduce_mean(pair_prop * self.target_weight)
+            pair_loss = tf.reduce_mean(pair_loss_ * self.target_weight)
             tf.summary.scalar('pair_loss', pair_loss)
             self.loss = pair_loss
 
