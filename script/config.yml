@@ -7,6 +7,7 @@ cat_voc: "data/cate_voc.json"
 tag_voc: "data/tag_voc.json"
 n_utype: 20
 batch_size: 1024
+learning_rate: 0.001
 uid_embedding_dim: 32
 utype_embedding_dim: 4
 mid_embedding_dim: 32

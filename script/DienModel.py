@@ -58,8 +58,9 @@ class BaseModel(object):
             test_batches = self.prepare_from_base64(self.test_data, for_training=False)
             feats_batches = tf.cond(self.for_training, lambda:train_batches, lambda:test_batches)
 
-            self.target_weight = tf.cast(self.get_one_group(feats_batches, 'target_weight'), dtype=tf.float32)/tf.constant(60.0, dtype=tf.float32) # use minutes weight
-            self.target_weight = tf.clip_by_value(self.target_weight,0,10)
+            self.target_ph = tf.cast(self.get_one_group(feats_batches, 'target_weight'), dtype=tf.float32)
+            self.target_weight = self.target_ph / tf.constant(60.0, dtype=tf.float32) # use minutes weight
+            self.target_weight = tf.clip_by_value(self.target_weight,1,10)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
             self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
             self.target_len = self.get_one_group(feats_batches, 'target_len')
@@ -76,7 +77,7 @@ class BaseModel(object):
             self.target_weight = tf.tile(self.target_weight[:,0:1], [1, self.targetLen-1]) - self.target_weight[:,1:]
             self.target_mask = np.zeros((self.batch_size, self.targetLen-1), dtype=np.float32)
             self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
-            self.target_mask = self.target_mask * self.target_weight # fix shape for sequence_mask
+            self.target_weight = self.target_mask * self.target_weight # fix shape for sequence_mask
 
             self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
@@ -225,6 +226,7 @@ class BaseModel(object):
             dnn2 = prelu(dnn2, 'prelu2')
         dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
         self.y_hat = tf.nn.softmax(dnn3) + 0.00000001
+        self.y_hat = self.y_hat[:,:,0] ### the 1st of 2d-softmax means positive probability
 
         with tf.name_scope('Metrics'):
             # # Cross-entropy loss and optimizer initialization
@@ -232,12 +234,13 @@ class BaseModel(object):
             # tf.summary.scalar('ctr_loss', ctr_loss)
             # self.loss = ctr_loss
             # Pair-wise loss and optimizer initialization
-            pos_hat_ = tf.expand_dims(self.y_hat[:, 0, 1],1)
-            neg_hat = self.y_hat[:, 1: tf.shape(self.y_hat)[1], 1]
+            pos_hat_ = tf.expand_dims(self.y_hat[:, 0], 1)
+            neg_hat = self.y_hat[:, 1:tf.shape(self.y_hat)[1]]
             pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1]])
-            pair_prop = tf.sigmoid(pos_hat-neg_hat)
+            pair_prop = tf.sigmoid(pos_hat-neg_hat) + 0.00000001
+            pair_prop = -tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask
 
-            pair_loss = tf.reduce_mean( - tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask )
+            pair_loss = tf.reduce_mean(pair_prop * self.target_weight)
             tf.summary.scalar('pair_loss', pair_loss)
             self.loss = pair_loss
 
@@ -250,8 +253,12 @@ class BaseModel(object):
 
             # Accuracy metric* self.target_mask
             target_ = tf.ones(shape=(tf.shape(neg_hat)[0], tf.shape(neg_hat)[1]), dtype=np.float32) * self.target_mask
-            self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(pair_prop), target_), tf.float32))
-            tf.summary.scalar('accuracy', self.accuracy)
+            self.pair_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(pair_prop), target_), tf.float32))
+            tf.summary.scalar('pair_accuracy', self.pair_accuracy)
+
+            correct_prediction = tf.equal(tf.argmax(self.y_hat, 1), 0)
+            self.top1_accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+            tf.summary.scalar('top1_accuracy', self.top1_accuracy)
 
         self.merged = tf.summary.merge_all()
 
@@ -270,7 +277,8 @@ class BaseModel(object):
         # loss_ = tf.reduce_mean(click_loss_ + noclick_loss_)
 
         ### pairwise loss
-        pair_loss = - tf.reshape(tf.log(tf.sigmoid(click_prop_-noclick_prop_)), [-1, tf.shape(click_seq)[1]]) * mask
+        pair_prop = tf.sigmoid(click_prop_ - noclick_prop_) + 0.00000001 ### 1 negative sample for each positive sample
+        pair_loss = - tf.reshape(tf.log(pair_prop), [-1, tf.shape(click_seq)[1]]) * mask
         loss_ = tf.reduce_mean(pair_loss)
 
         return loss_
@@ -286,25 +294,26 @@ class BaseModel(object):
         return y_hat
 
     def train(self, sess, inps):
-        loss, accuracy, aux_loss, merged, _ = sess.run([self.loss, self.accuracy, self.aux_loss, self.merged, self.optimizer], feed_dict={
+        loss, aux_loss, top1_accuracy, pair_accuracy, merged, _ = sess.run([self.loss, self.aux_loss, self.top1_accuracy, self.pair_accuracy, self.merged, self.optimizer], feed_dict={
             self.for_training: inps[0],
             self.lr: inps[1]
         })
-        return loss, accuracy, aux_loss, merged
+        return loss, aux_loss, top1_accuracy, pair_accuracy, merged
 
     def test(self, sess, inps):
-        loss, accuracy, aux_loss, merged = sess.run([self.loss, self.accuracy, self.aux_loss, self.merged], feed_dict={
+        loss, aux_loss, top1_accuracy, pair_accuracy, merged = sess.run([self.loss, self.aux_loss, self.top1_accuracy, self.pair_accuracy, self.merged], feed_dict={
             self.for_training: inps[0],
             self.lr: inps[1]
         })
-        return loss, accuracy, aux_loss, merged
+        return loss, aux_loss, top1_accuracy, pair_accuracy, merged
 
     def calculate(self, sess, inps):
-        probs, targets, uids, loss, accuracy, aux_loss = sess.run([self.y_hat, self.target_weight, self.uid_batch_ph, self.loss, self.accuracy, self.aux_loss], feed_dict={
+        probs, targets, uids, loss, aux_loss, top1_accuracy, pair_accuracy = sess.run([self.y_hat, self.target_ph, self.uid_batch_ph,
+                                                                                         self.loss, self.aux_loss, self.top1_accuracy, self.pair_accuracy], feed_dict={
             self.for_training: inps[0],
             self.lr: inps[1]
         })
-        return probs, targets, uids, loss, accuracy, aux_loss
+        return probs, targets, uids, loss, aux_loss, top1_accuracy, pair_accuracy
 
     def update_best_model(self, sess, path, iter):
         save_dir , prefix = os.path.split(path)

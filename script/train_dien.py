@@ -59,42 +59,44 @@ def train(conf, seed):
         print("local_variables_initializer done")
 
         start_first = time.time()
-        lr = 0.01
-        loss_sum, accuracy_sum, aux_loss_sum= 0., 0., 0.
-        test_loss_sum, test_accuracy_sum, test_aux_loss_sum= 0., 0., 0.
-        test_loss, test_accuracy, test_aux_loss, test_merged_summary = model.test(sess, [False, lr])
-        print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
-              (0, test_loss, test_accuracy, test_aux_loss))
+        lr = conf['learning_rate']
+        loss_sum,  aux_loss_sum, top1_acc_sum, pair_acc_sum,= 0., 0., 0., 0.
+        test_loss_sum, test_aux_loss_sum, test_top1_acc_sum, test_pair_acc_sum, = 0., 0., 0., 0.
+        test_loss, test_aux_loss, test_top1_acc, test_pair_acc, test_merged_summary = model.test(sess, [False, lr])
+        print('iter: %d ----> test_loss: %.4f ---- test_aux_loss: %.4f ---- test_top1_accuracy: %.4f ---- test_pair_acc: %.4f' % \
+              (0, test_loss, test_aux_loss, test_top1_acc, test_pair_acc))
         sys.stdout.flush()
 
         start_ = time.time()
         for iter in range(1,conf['max_steps']):
             try:
-                loss, acc, aux_loss, train_merged_summary = model.train(sess, [True, lr])
+                loss, aux_loss, top1_acc, pair_acc, train_merged_summary = model.train(sess, [True, lr])
                 loss_sum += loss
-                accuracy_sum += acc
                 aux_loss_sum += aux_loss
+                top1_acc_sum += top1_acc
+                pair_acc_sum += pair_acc
                 train_writer.add_summary(train_merged_summary, iter)
 
-                test_loss, test_accuracy, test_aux_loss, test_merged_summary = model.test(sess, [False, lr])
+                test_loss, test_aux_loss, test_top1_acc, test_pair_acc, test_merged_summary = model.test(sess, [False, lr])
                 test_loss_sum += test_loss
-                test_accuracy_sum += test_accuracy
                 test_aux_loss_sum += test_aux_loss
+                test_top1_acc_sum += test_top1_acc
+                test_pair_acc_sum += test_pair_acc
                 test_writer.add_summary(test_merged_summary, iter)
 
                 if (iter % test_iter) == 0:
-                    print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- train_aux_loss: %.4f' % \
-                                          (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
+                    print('iter: %d ----> train_loss: %.4f ---- train_aux_loss: %.4f ---- train_top1_accuracy: %.4f ---- train_pair_accuracy: %.4f' % \
+                                          (iter, loss_sum / test_iter, aux_loss_sum / test_iter, top1_acc_sum / test_iter, pair_acc_sum / test_iter))
 
                     # test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter, test_batches=100)
-                    print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
-                          (iter, test_loss_sum / test_iter, test_accuracy_sum / test_iter, test_aux_loss_sum / test_iter))
+                    print('iter: %d ----> test_loss: %.4f ---- test_aux_loss: %.4f ---- test_top1_accuracy: %.4f ---- test_pair_acc: %.4f' % \
+                          (iter, test_loss_sum / test_iter, test_aux_loss_sum / test_iter, test_top1_acc_sum / test_iter, test_pair_acc_sum / test_iter))
 
                     # print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(iter, test_auc, test_user_auc))
                     print('iter: {} ----> learning rate: {}. {} iters take time: {}'.format(iter, lr, test_iter, time.time()- start_))
 
                     sys.stdout.flush()
-                    loss_sum, accuracy_sum, aux_loss_sum= 0., 0., 0.
+                    loss_sum, pair_acc_sum, aux_loss_sum= 0., 0., 0.
                     start_ = time.time()
 
                 if (iter % conf['lr_decay_steps']) == 0:
