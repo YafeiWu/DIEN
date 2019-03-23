@@ -58,7 +58,8 @@ class BaseModel(object):
             test_batches = self.prepare_from_base64(self.test_data, for_training=False)
             feats_batches = tf.cond(self.for_training, lambda:train_batches, lambda:test_batches)
 
-            self.target_weight = tf.cast(self.get_one_group(feats_batches, 'target_weight'), dtype=tf.float32)
+            self.target_weight = tf.cast(self.get_one_group(feats_batches, 'target_weight')/60.0, dtype=tf.float32) # use minutes weight
+            self.target_weight = tf.clip_by_value(self.target_weight,0,10)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
             self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
             self.target_len = self.get_one_group(feats_batches, 'target_len')
@@ -244,8 +245,8 @@ class BaseModel(object):
             tf.summary.scalar('loss', self.loss)
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
-            # Accuracy metric
-            target_ = tf.ones(shape=(tf.shape(neg_hat)[0], tf.shape(neg_hat)[1]), dtype=np.float32)
+            # Accuracy metric* self.target_mask
+            target_ = tf.ones(shape=(tf.shape(neg_hat)[0], tf.shape(neg_hat)[1]), dtype=np.float32) * self.target_mask
             self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(pair_prop), target_), tf.float32))
             tf.summary.scalar('accuracy', self.accuracy)
 

@@ -15,7 +15,6 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     accuracy_sum = 0.
     aux_loss_sum = 0.
     stored_arr = []
-    test_user_auc = None
     for nums in range(1,test_batches+1):
         try:
             prob, target, uids, loss, acc, aux_loss = model.calculate(sess, [False, 0.0])
@@ -33,7 +32,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             break
 
     test_auc = cal_auc(stored_arr)
-    # test_user_auc = cal_user_auc(stored_arr)
+    test_user_auc = cal_user_auc(stored_arr)
     accuracy_sum = accuracy_sum / nums
     loss_sum = loss_sum / nums
     aux_loss_sum = aux_loss_sum / nums
@@ -68,6 +67,7 @@ def train(conf, seed):
         start_first = time.time()
         lr = 0.001
         loss_sum, accuracy_sum, aux_loss_sum= 0., 0., 0.
+        test_loss_sum, test_accuracy_sum, test_aux_loss_sum= 0., 0., 0.
         start_ = time.time()
         for iter in range(1,conf['max_steps']):
             try:
@@ -78,17 +78,20 @@ def train(conf, seed):
                 train_writer.add_summary(train_merged_summary, iter)
 
                 test_loss, test_accuracy, test_aux_loss, test_merged_summary = model.test(sess, [False, lr])
+                test_loss_sum += test_loss
+                test_accuracy_sum += test_accuracy
+                test_aux_loss_sum += test_aux_loss
                 test_writer.add_summary(test_merged_summary, iter)
 
                 if (iter % test_iter) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- train_aux_loss: %.4f' % \
                                           (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
 
-                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter, test_batches=100)
+                    # test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter, test_batches=100)
                     print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
-                          (iter, test_loss, test_accuracy, test_aux_loss))
+                          (iter, test_loss_sum / test_iter, test_accuracy_sum / test_iter, test_aux_loss_sum / test_iter))
 
-                    print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(iter, test_auc, test_user_auc))
+                    # print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(iter, test_auc, test_user_auc))
                     print('iter: {} ----> learning rate: {}. {} iters take time: {}'.format(iter, lr, test_iter, time.time()- start_))
 
                     sys.stdout.flush()
@@ -103,10 +106,10 @@ def train(conf, seed):
                 print("End of training dataset")  # ==> "End of training dataset"
                 break
 
-        #### test_batches=100 test for all, get per_user_auc
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, None, 100)
-        print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
-              .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
+        # #### test_batches=100 test for all, get per_user_auc
+        # test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, None, 100)
+        # print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
+        #       .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
         print('Training done. Take time:{}'.format(time.time()-start_first))
 
 def test(conf, seed):
