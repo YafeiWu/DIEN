@@ -58,16 +58,15 @@ def train(conf, seed):
         tf.summary.FileWriter(conf['logdir'], sess.graph)
         print("local_variables_initializer done")
 
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter=None, test_batches=1)
-        print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
-              (0, test_loss, test_accuracy, test_aux_loss))
-        print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(0, test_auc, test_user_auc))
-        sys.stdout.flush()
-
         start_first = time.time()
-        lr = 0.001
+        lr = 0.01
         loss_sum, accuracy_sum, aux_loss_sum= 0., 0., 0.
         test_loss_sum, test_accuracy_sum, test_aux_loss_sum= 0., 0., 0.
+        test_loss, test_accuracy, test_aux_loss, test_merged_summary = model.test(sess, [False, lr])
+        print('iter: %d ----> test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % \
+              (0, test_loss, test_accuracy, test_aux_loss))
+        sys.stdout.flush()
+
         start_ = time.time()
         for iter in range(1,conf['max_steps']):
             try:
