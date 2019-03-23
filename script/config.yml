@@ -15,7 +15,7 @@ tag_embedding_dim: 2
 hidden_size: 64
 attention_size: 64
 enable_shuffle: True
-use_negsampling: False
+use_negsampling: True
 enable_uid: True
 enable_tag: True
 maxlen: 100
