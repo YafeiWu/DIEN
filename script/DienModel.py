@@ -73,7 +73,10 @@ class BaseModel(object):
                 self.tags_batch_ph = self.get_one_group(feats_batches, 'target_tags')
                 self.tags_his_batch_ph = self.get_one_group(feats_batches, 'clktags_seq')
 
-            self.target_mask = tf.tile(self.target_weight[:,0:1], [1, self.targetLen-1]) - self.target_weight[:,1:]
+            self.target_weight = tf.tile(self.target_weight[:,0:1], [1, self.targetLen-1]) - self.target_weight[:,1:]
+            self.target_mask = np.zeros((self.batch_size, self.targetLen-1), dtype=np.float32)
+            self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
+            self.target_mask = self.target_mask * self.target_weight # fix shape for sequence_mask
 
             self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
