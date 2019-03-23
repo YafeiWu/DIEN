@@ -75,11 +75,14 @@ class BaseModel(object):
                 self.tags_batch_ph = self.get_one_group(feats_batches, 'target_tags')
                 self.tags_his_batch_ph = self.get_one_group(feats_batches, 'clktags_seq')
 
-            self.target_mask = np.zeros((self.batch_size, self.targetLen-1), dtype=np.float32)
-            self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
             if self.use_pair_loss:
+                self.target_mask = np.zeros((self.batch_size, self.targetLen-1), dtype=np.float32)
+                self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
                 self.target_weight = tf.tile(self.target_weight[:,0:1], [1, self.targetLen-1]) - self.target_weight[:,1:]
                 self.target_weight = self.target_mask * self.target_weight # fix shape for sequence_mask
+            else:
+                self.target_mask = np.zeros((self.batch_size, self.targetLen), dtype=np.float32)
+                self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
 
             self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
@@ -255,13 +258,13 @@ class BaseModel(object):
                 ones_ = tf.ones_like(self.label)
                 zeros_ = tf.zeros_like(self.label)
                 self.label = tf.where(self.label>0.0, x=ones_, y=zeros_)
-                ctr_loss_w = tf.reduce_sum(tf.log(self.y_hat) * self.label, 2) * self.target_weight
+                ctr_loss_w = tf.reduce_sum(tf.log(self.y_hat) * self.label, 2) * self.target_mask
                 ctr_loss = - tf.reduce_mean(ctr_loss_w)
                 tf.summary.scalar('ctr_loss', ctr_loss)
                 self.loss = ctr_loss
 
                 # Accuracy metric
-                self.target_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat), self.label), tf.float32))
+                self.target_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat[:,:,0]), self.label[:,:,0]), tf.float32) * self.target_mask )
                 tf.summary.scalar('ctr_accuracy', self.target_accuracy)
 
             if self.use_negsampling:
