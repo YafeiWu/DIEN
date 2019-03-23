@@ -17,6 +17,7 @@ hidden_size: 64
 attention_size: 64
 enable_shuffle: True
 use_negsampling: True
+use_pair_loss: False
 enable_uid: True
 enable_tag: True
 maxlen: 100
