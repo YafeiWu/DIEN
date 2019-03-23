@@ -45,7 +45,6 @@ class BaseModel(object):
         self.targetLen = conf['targetLen']
         self.negSeqLen = conf['negseq_length']
         self.enable_shuffle = conf['enable_shuffle']
-        self.feats_dim = conf['feats_dim']
         self.negStartIdx = 6+2*self.maxLen+1 #207
         self.use_negsampling = conf['use_negsampling']
         self.use_pair_loss = conf['use_pair_loss']
@@ -260,7 +259,7 @@ class BaseModel(object):
                 self.loss = ctr_loss
 
                 # Accuracy metric
-                self.target_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat), self.target_ph), tf.float32))
+                self.target_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat), self.label), tf.float32))
                 tf.summary.scalar('ctr_accuracy', self.target_accuracy)
 
             if self.use_negsampling:

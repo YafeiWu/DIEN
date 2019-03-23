@@ -25,7 +25,6 @@ minlen: 1
 targetLen: 10
 negseq_length: 5
 tags_length: 5
-feats_dim: 747
 seed: 2
 test_iter: 100
 save_iter: 100
