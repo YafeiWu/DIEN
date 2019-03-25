@@ -134,6 +134,10 @@ class SeqEmbModel(BaseModel):
                 self.item_eb = tf.concat([self.mid_batch_embedded, self.cat_batch_embedded], 2)
                 self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded], 2)
 
+            self.mask = tf.expand_dims(self.mask, -1)
+            self.mask = tf.tile(self.mask, [1, 1, tf.shape(self.item_his_eb)[2]])
+            self.item_his_eb = self.item_his_eb * self.mask
+
             self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
 
     def concatLayer(self):
@@ -146,14 +150,14 @@ class SeqEmbModel(BaseModel):
     def build_user_vec(self, inp):
         with tf.name_scope('build_user_vec'):
             bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1')
-            dnn1 = tf.layers.dense(bn1, 200, activation=None, name='user_f1')
+            dnn1 = tf.layers.dense(bn1, 100, activation=None, name='user_f1')
             dnn1 = prelu(dnn1, 'user_prelu1')
             return dnn1
 
     def build_item_vec(self, inp):
         with tf.name_scope('build_item_vec'):
             bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1')
-            dnn1 = tf.layers.dense(bn1, 200, activation=None, name='item_f1')
+            dnn1 = tf.layers.dense(bn1, 100, activation=None, name='item_f1')
             dnn1 = prelu(dnn1, 'item_prelu1')
             return dnn1
 
@@ -165,9 +169,9 @@ class SeqEmbModel(BaseModel):
             self.user_vec_list = tf.reshape(self.user_vec_list, tf.shape(self.item_vec))
             cross_raw = tf.multiply(self.user_vec_list, self.item_vec)
             bn1 = tf.layers.batch_normalization(inputs=cross_raw, name='bn1')
-            dnn1 = tf.layers.dense(bn1, 128, activation=None, name='f1')
+            dnn1 = tf.layers.dense(bn1, 50, activation=None, name='f1')
             dnn1 = prelu(dnn1, 'prelu1')
-            dnn2 = tf.layers.dense(dnn1, 64, activation=None, name='f2')
+            dnn2 = tf.layers.dense(dnn1, 20, activation=None, name='f2' )
             dnn2 = prelu(dnn2, 'prelu2')
             dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
             self.y_hat = tf.nn.softmax(dnn3) + epsilon
