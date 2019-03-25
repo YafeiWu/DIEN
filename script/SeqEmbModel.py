@@ -24,8 +24,7 @@ class SeqEmbModel(BaseModel):
         self.aux_loss = tf.constant(0., dtype=tf.float32)
         self.feat_group = self.featGroup()
         self.inputsLayer()
-        self.embeddingLayer()
-        self.concatLayer()
+        self.build_model()
 
     def featGroup(self):
         feat_names = [
@@ -87,6 +86,13 @@ class SeqEmbModel(BaseModel):
             self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
 
+    def build_model(self):
+        self.embeddingLayer()
+        self.concatLayer()
+        self.use_negsampling = False
+        self.user_cross_item()
+        self.metrics()
+
     def embeddingLayer(self):
         # Embedding layer
         with tf.name_scope('Embedding_layer'):
@@ -137,35 +143,34 @@ class SeqEmbModel(BaseModel):
             his_seq_sum = tf.reduce_sum(self.item_his_eb * his_weights, 1)
             self.user_eb = tf.concat([self.user_batch_embedded, his_seq_sum, self.item_his_eb_sum], 1)
 
-            self.use_negsampling = False
-            self.user_cross_item()
-            self.metrics()
-
     def build_user_vec(self, inp):
-        bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1')
-        dnn1 = tf.layers.dense(bn1, 200, activation=None, name='user_f1')
-        dnn1 = prelu(dnn1, 'user_prelu1')
-        return dnn1
+        with tf.name_scope('build_user_vec'):
+            bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1')
+            dnn1 = tf.layers.dense(bn1, 200, activation=None, name='user_f1')
+            dnn1 = prelu(dnn1, 'user_prelu1')
+            return dnn1
 
     def build_item_vec(self, inp):
-        bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1')
-        dnn1 = tf.layers.dense(bn1, 200, activation=None, name='item_f1')
-        dnn1 = prelu(dnn1, 'item_prelu1')
-        return dnn1
+        with tf.name_scope('build_item_vec'):
+            bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1')
+            dnn1 = tf.layers.dense(bn1, 200, activation=None, name='item_f1')
+            dnn1 = prelu(dnn1, 'item_prelu1')
+            return dnn1
 
     def user_cross_item(self):
-        self.user_vec = self.build_user_vec(self.user_eb)
-        self.item_vec = self.build_item_vec(self.item_eb)
-        self.user_vec_list = tf.tile(self.user_vec, [1, tf.shape(self.item_vec)[1]])
-        self.user_vec_list = tf.reshape(self.user_vec_list, tf.shape(self.item_vec))
-        cross_raw = tf.matmul(self.user_vec_list, self.item_vec)
-        bn1 = tf.layers.batch_normalization(inputs=cross_raw, name='bn1')
-        dnn1 = tf.layers.dense(bn1, 128, activation=None, name='f1')
-        dnn1 = prelu(dnn1, name='prelu1')
-        dnn2 = tf.layers.dense(dnn1, 64, activation=None, name='f2')
-        dnn2 = prelu(dnn2, 'prelu2')
-        dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
-        self.y_hat = tf.nn.softmax(dnn3) + epsilon
+        with tf.name_scope('user_cross_item'):
+            self.user_vec = self.build_user_vec(self.user_eb)
+            self.item_vec = tf.reshape(self.build_item_vec(self.item_eb), [self.batch_size, self.targetLen, 200])
+            self.user_vec_list = tf.tile(self.user_vec, [1, tf.shape(self.item_vec)[1]])
+            self.user_vec_list = tf.reshape(self.user_vec_list, tf.shape(self.item_vec))
+            cross_raw = tf.matmul(self.user_vec_list, self.item_vec)
+            bn1 = tf.layers.batch_normalization(inputs=cross_raw, name='bn1')
+            dnn1 = tf.layers.dense(bn1, 128, activation=None, name='f1')
+            dnn1 = prelu(dnn1, name='prelu1')
+            dnn2 = tf.layers.dense(dnn1, 64, activation=None, name='f2')
+            dnn2 = prelu(dnn2, 'prelu2')
+            dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
+            self.y_hat = tf.nn.softmax(dnn3) + epsilon
 
     def metrics(self):
         with tf.name_scope('Metrics'):
