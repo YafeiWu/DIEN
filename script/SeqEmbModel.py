@@ -203,13 +203,14 @@ class SeqEmbModel(BaseModel):
                 ones_ = tf.ones_like(self.label)
                 zeros_ = tf.zeros_like(self.label)
                 self.label = tf.where(self.label>0.0, x=ones_, y=zeros_)
-                ctr_loss_w = tf.reduce_sum(tf.log(self.y_hat) * self.label, 2) * self.target_mask
-                ctr_loss = - tf.reduce_mean(ctr_loss_w)
+                ctr_loss_w = tf.reduce_sum(tf.log(self.y_hat) * self.label, 2) * self.target_mask * self.target_weight
+                ctr_loss = - tf.reduce_sum(ctr_loss_w) / tf.reduce_sum(self.target_mask)
                 tf.summary.scalar('ctr_loss', ctr_loss)
                 self.loss = ctr_loss
 
                 # Accuracy metric
-                self.target_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat[:,:,0]), self.label[:,:,0]), tf.float32) * self.target_mask )
+                accuracy_masked = tf.cast(tf.equal(tf.round(self.y_hat[:,:,0]), self.label[:,:,0]), tf.float32) * self.target_mask
+                self.target_accuracy = tf.reduce_sum(accuracy_masked) / tf.reduce_sum(self.target_mask)
                 tf.summary.scalar('ctr_accuracy', self.target_accuracy)
 
             if self.use_negsampling:
