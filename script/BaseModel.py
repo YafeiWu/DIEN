@@ -13,7 +13,7 @@ import time
 from feature_def import UserSeqFeature
 from random import randint
 
-MinProbability = 0.00000001
+epsilon = 0.000000001
 EPR_THRESHOLD = 7.0
 def base64_to_int32(base64string):
     decoded = tf.decode_base64(base64string)
@@ -130,7 +130,7 @@ class BaseModel(object):
         else:
             dnn2 = prelu(dnn2, 'prelu2')
         dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
-        self.y_hat = tf.nn.softmax(dnn3) + MinProbability
+        self.y_hat = tf.nn.softmax(dnn3) + epsilon
 
         with tf.name_scope('Metrics'):
             # Pair-wise loss and optimizer initialization
@@ -139,7 +139,7 @@ class BaseModel(object):
                 pos_hat_ = tf.expand_dims(self.y_hat[:, 0], 1)
                 neg_hat = self.y_hat[:, 1:tf.shape(self.y_hat)[1]]
                 pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1]])
-                pair_prop = tf.sigmoid(pos_hat - neg_hat) + MinProbability
+                pair_prop = tf.sigmoid(pos_hat - neg_hat) + epsilon
                 pair_loss_ = -tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask
 
                 pair_loss = tf.reduce_mean(pair_loss_ * self.target_weight)
@@ -192,7 +192,7 @@ class BaseModel(object):
         noclick_prop_ = self.auxiliary_net(noclick_input_, stag = stag)[:, :, 0]
         if self.use_pair_loss:
             ### pairwise loss
-            pair_prop = tf.sigmoid(click_prop_ - noclick_prop_) + MinProbability ### 1 negative sample for each positive sample
+            pair_prop = tf.sigmoid(click_prop_ - noclick_prop_) + epsilon ### 1 negative sample for each positive sample
             pair_loss = - tf.reshape(tf.log(pair_prop), [-1, tf.shape(click_seq)[1]]) * mask
             loss_ = tf.reduce_mean(pair_loss)
         else:
@@ -210,7 +210,7 @@ class BaseModel(object):
         dnn2 = tf.layers.dense(dnn1, 50, activation=None, name='f2' + stag, reuse=tf.AUTO_REUSE)
         dnn2 = tf.nn.sigmoid(dnn2)
         dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3' + stag, reuse=tf.AUTO_REUSE)
-        y_hat = tf.nn.softmax(dnn3) + MinProbability
+        y_hat = tf.nn.softmax(dnn3) + epsilon
         return y_hat
 
     def train(self, sess, inps):

@@ -14,6 +14,9 @@ import time
 from feature_def import UserSeqFeature
 from random import randint
 
+epsilon = 0.000000001
+EPR_THRESHOLD = 7.0
+
 class SeqEmbModel(BaseModel):
     """SEMB"""
     def __init__(self, conf, task="train"):
@@ -132,17 +135,81 @@ class SeqEmbModel(BaseModel):
             his_weights = tf.expand_dims(self.weight_his_batch_ph, -1)
             his_weights = tf.tile(his_weights, [1, 1, tf.shape(self.item_his_eb)[2]])
             his_seq_sum = tf.reduce_sum(self.item_his_eb * his_weights, 1)
-            u_his_inp = tf.concat([self.user_batch_embedded, his_seq_sum], 1)
-            item_his_eb_sum_  = tf.expand_dims(self.item_his_eb_sum, 1)
-            item_his_eb_sum_ = tf.tile(item_his_eb_sum_, multiples=[1, tf.shape(self.item_eb)[1], 1])
-            u_now_inp = tf.concat([self.item_eb, self.item_eb * item_his_eb_sum_], 2)
-            u_his_inp_exp = tf.expand_dims(u_his_inp, 1)
-            u_his_inp_exp = tf.tile(u_his_inp_exp, multiples=[1, tf.shape(u_now_inp)[1], 1])
-            fcn_inp = tf.concat([u_now_inp, u_his_inp_exp], 2)
+            self.user_eb = tf.concat([self.user_batch_embedded, his_seq_sum, self.item_his_eb_sum], 1)
 
             self.use_negsampling = False
-            self.build_fcn_net(fcn_inp, use_dice=True)
+            self.user_cross_item()
+            self.metrics()
 
+    def build_user_vec(self, inp):
+        bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1')
+        dnn1 = tf.layers.dense(bn1, 200, activation=None, name='user_f1')
+        dnn1 = prelu(dnn1, 'user_prelu1')
+        return dnn1
 
-        # inp = tf.concat([self.user_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, final_state2], 1)
-        # self.build_fcn_net(inp, use_dice=True)
+    def build_item_vec(self, inp):
+        bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1')
+        dnn1 = tf.layers.dense(bn1, 200, activation=None, name='item_f1')
+        dnn1 = prelu(dnn1, 'item_prelu1')
+        return dnn1
+
+    def user_cross_item(self):
+        self.user_vec = self.build_user_vec(self.user_eb)
+        self.item_vec = self.build_item_vec(self.item_eb)
+        cross_raw = tf.matmul(self.user_vec, self.item_vec)
+        bn1 = tf.layers.batch_normalization(inputs=cross_raw, name='bn1')
+        dnn1 = tf.layers.dense(bn1, 128, activation=None, name='f1')
+        dnn1 = prelu(dnn1, name='prelu1')
+        dnn2 = tf.layers.dense(dnn1, 64, activation=None, name='f2')
+        dnn2 = prelu(dnn2, 'prelu2')
+        dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
+        self.y_hat = tf.nn.softmax(dnn3) + epsilon
+
+    def metrics(self):
+        with tf.name_scope('Metrics'):
+            # Pair-wise loss and optimizer initialization
+            if self.use_pair_loss:
+                self.y_hat = self.y_hat[:,:,0] ### the 1st of 2d-softmax means positive probability
+                pos_hat_ = tf.expand_dims(self.y_hat[:, 0], 1)
+                neg_hat = self.y_hat[:, 1:tf.shape(self.y_hat)[1]]
+                pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1]])
+                pair_prop = tf.sigmoid(pos_hat - neg_hat) + epsilon
+                pair_loss_ = -tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask
+
+                pair_loss = tf.reduce_mean(pair_loss_ * self.target_weight)
+                tf.summary.scalar('pair_loss', pair_loss)
+                self.loss = pair_loss
+
+                # Accuracy metric* self.target_mask
+                target_ = tf.ones(shape=(tf.shape(neg_hat)[0], tf.shape(neg_hat)[1]), dtype=np.float32) * self.target_mask
+                self.target_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(pair_prop), target_), tf.float32))
+                tf.summary.scalar('pair_accuracy', self.target_accuracy)
+
+            else:
+                # Cross-entropy loss and optimizer initialization
+                target_ = tf.expand_dims(self.target_ph, -1) - tf.constant(EPR_THRESHOLD, dtype=tf.float32)
+                self.label = tf.concat([target_, -target_], -1)
+                ones_ = tf.ones_like(self.label)
+                zeros_ = tf.zeros_like(self.label)
+                self.label = tf.where(self.label>0.0, x=ones_, y=zeros_)
+                ctr_loss_w = tf.reduce_sum(tf.log(self.y_hat) * self.label, 2) * self.target_mask
+                ctr_loss = - tf.reduce_mean(ctr_loss_w)
+                tf.summary.scalar('ctr_loss', ctr_loss)
+                self.loss = ctr_loss
+
+                # Accuracy metric
+                self.target_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(self.y_hat[:,:,0]), self.label[:,:,0]), tf.float32) * self.target_mask )
+                tf.summary.scalar('ctr_accuracy', self.target_accuracy)
+
+            if self.use_negsampling:
+                self.loss += self.aux_loss
+                tf.summary.scalar('aux_loss', self.aux_loss)
+
+            tf.summary.scalar('loss', self.loss)
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
+
+            correct_prediction = tf.equal(tf.argmax(self.y_hat[:,:,0], 1), 0)
+            self.top1_accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+            tf.summary.scalar('top1_accuracy', self.top1_accuracy)
+
+        self.merged = tf.summary.merge_all()
