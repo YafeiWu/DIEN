@@ -156,7 +156,7 @@ class SeqEmbModel(BaseModel):
     def user_cross_item(self):
         self.user_vec = self.build_user_vec(self.user_eb)
         self.item_vec = self.build_item_vec(self.item_eb)
-        self.user_vec_list = tf.tile(self.user_vec, tf.shape(self.item_vec)[1])
+        self.user_vec_list = tf.tile(self.user_vec, [1, tf.shape(self.item_vec)[1]])
         self.user_vec_list = tf.reshape(self.user_vec_list, tf.shape(self.item_vec))
         cross_raw = tf.matmul(self.user_vec_list, self.item_vec)
         bn1 = tf.layers.batch_normalization(inputs=cross_raw, name='bn1')
