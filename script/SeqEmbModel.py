@@ -166,7 +166,7 @@ class SeqEmbModel(BaseModel):
             cross_raw = tf.multiply(self.user_vec_list, self.item_vec)
             bn1 = tf.layers.batch_normalization(inputs=cross_raw, name='bn1')
             dnn1 = tf.layers.dense(bn1, 128, activation=None, name='f1')
-            dnn1 = prelu(dnn1, name='prelu1')
+            dnn1 = prelu(dnn1, 'prelu1')
             dnn2 = tf.layers.dense(dnn1, 64, activation=None, name='f2')
             dnn2 = prelu(dnn2, 'prelu2')
             dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
