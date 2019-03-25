@@ -18,6 +18,7 @@ class SeqEmbModel(BaseModel):
     """SEMB"""
     def __init__(self, conf, task="train"):
         super(SeqEmbModel, self).__init__(conf,task)
+        self.aux_loss = tf.constant(0., dtype=tf.float32)
         self.feat_group = self.featGroup()
         self.inputsLayer()
         self.embeddingLayer()
@@ -65,7 +66,7 @@ class SeqEmbModel(BaseModel):
             self.seq_len_ph = self.get_one_group(feats_batches, 'clkseq_len')
             self.mid_his_batch_ph = self.get_one_group(feats_batches, 'clkmid_seq')
             self.cat_his_batch_ph = self.get_one_group(feats_batches, 'clkcate_seq')
-            self.weight_his_batch_ph = self.get_one_group(feats_batches, 'clkweight_seq')
+            self.weight_his_batch_ph = tf.cast(self.get_one_group(feats_batches, 'clkweight_seq'), dtype=tf.float32)
 
             if self.enable_tag:
                 self.tags_batch_ph = self.get_one_group(feats_batches, 'target_tags')
@@ -129,9 +130,9 @@ class SeqEmbModel(BaseModel):
     def concatLayer(self):
         with tf.name_scope('concat_user_seq'):
             his_weights = tf.expand_dims(self.weight_his_batch_ph, -1)
-            his_weights = tf.tile(his_weights, [1,1, tf.shape(self.item_his_eb)[2]])
-            his_seq_sum = self.item_his_eb * his_weights
-            u_his_inp = tf.concat(self.user_batch_embedded, his_seq_sum)
+            his_weights = tf.tile(his_weights, [1, 1, tf.shape(self.item_his_eb)[2]])
+            his_seq_sum = tf.reduce_sum(self.item_his_eb * his_weights, 1)
+            u_his_inp = tf.concat([self.user_batch_embedded, his_seq_sum], 1)
             item_his_eb_sum_  = tf.expand_dims(self.item_his_eb_sum, 1)
             item_his_eb_sum_ = tf.tile(item_his_eb_sum_, multiples=[1, tf.shape(self.item_eb)[1], 1])
             u_now_inp = tf.concat([self.item_eb, self.item_eb * item_his_eb_sum_], 2)
