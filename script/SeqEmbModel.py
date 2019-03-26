@@ -58,7 +58,7 @@ class SeqEmbModel(BaseModel):
             feats_batches = tf.cond(self.for_training, lambda:train_batches, lambda:test_batches)
 
             self.target_ph = tf.cast(self.get_one_group(feats_batches, 'target_weight'), dtype=tf.float32)
-            self.target_weight = self.target_ph / tf.constant(60.0, dtype=tf.float32) # use minutes weight
+            self.target_weight = self.target_ph / tf.constant(30.0, dtype=tf.float32) # use half minutes weight
             self.target_weight = tf.clip_by_value(self.target_weight,1,10)
             self.uid_batch_ph = self.get_one_group(feats_batches, 'uid')
             self.utype_batch_ph = self.get_one_group(feats_batches, 'utype')
@@ -75,13 +75,14 @@ class SeqEmbModel(BaseModel):
                 self.tags_his_batch_ph = self.get_one_group(feats_batches, 'clktags_seq')
 
             if self.use_pair_loss:
-                self.target_mask = np.zeros((self.batch_size, self.targetLen-1), dtype=np.float32)
-                self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
-                self.target_weight = tf.tile(self.target_weight[:,0:1], [1, self.targetLen-1]) - self.target_weight[:,1:]
-                self.target_weight = self.target_mask * self.target_weight # fix shape for sequence_mask
-            else:
-                self.target_mask = np.zeros((self.batch_size, self.targetLen), dtype=np.float32)
-                self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
+                self.target_mask_pair = np.zeros((self.batch_size, self.targetLen-1), dtype=np.float32)
+                ### enable pos_sample vs default
+                self.target_mask_pair = tf.sequence_mask(self.target_len + tf.constant(1, tf.int32), self.target_mask_pair.shape[1], dtype=tf.float32)
+                self.target_weight_pair = tf.tile(self.target_weight[:,0:1], [1, self.targetLen-1]) - self.target_weight[:,1:]
+                self.target_weight_pair = self.target_mask_pair * self.target_weight_pair # fix shape for sequence_mask
+
+            self.target_mask = np.zeros((self.batch_size, self.targetLen), dtype=np.float32)
+            self.target_mask = tf.sequence_mask(self.target_len, self.target_mask.shape[1], dtype=tf.float32)
 
             self.mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
@@ -95,7 +96,7 @@ class SeqEmbModel(BaseModel):
 
     def embeddingLayer(self):
         # Embedding layer
-        self.utype_batch_ph = tf.expand_dims(self.utype_batch_ph, -1)
+        self.utype_batch_ph = tf.expand_dims(tf.cast(self.utype_batch_ph, dtype=tf.float32), -1)
         with tf.name_scope('Embedding_layer'):
             if self.enable_uid:
                 self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
@@ -149,6 +150,7 @@ class SeqEmbModel(BaseModel):
         with tf.name_scope('build_user_vec'):
             bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1')
             dnn1 = tf.layers.dense(bn1, 100, activation=None, name='user_f1')
+            tf.summary.histogram('user_f1_output', dnn1)
             dnn1 = prelu(dnn1, 'user_prelu1')
             return dnn1
 
@@ -156,6 +158,7 @@ class SeqEmbModel(BaseModel):
         with tf.name_scope('build_item_vec'):
             bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1')
             dnn1 = tf.layers.dense(bn1, 100, activation=None, name='item_f1')
+            tf.summary.histogram('item_f1_output', dnn1)
             dnn1 = prelu(dnn1, 'item_prelu1')
             return dnn1
 
@@ -169,6 +172,7 @@ class SeqEmbModel(BaseModel):
             self.item_vec_normal = tf.sqrt(tf.reduce_sum(tf.square(self.item_vec), 2, True))
             gamma = 20.0
             self.cross_raw = tf.multiply(self.user_vec_normal, self.item_vec_normal) * gamma
+            tf.summary.histogram('cross_raw', self.cross_raw)
 
     def ctr_accuracy(self):
         # Generate label matrix
@@ -187,34 +191,45 @@ class SeqEmbModel(BaseModel):
 
     def metrics(self):
         with tf.name_scope('Metrics'):
-            self.label, self.target_accuracy = self.ctr_accuracy()
+            self.y_hat = tf.nn.softmax(self.cross_raw) + epsilon
+            self.label, self.ctr_accuracy = self.ctr_accuracy()
             # Pair-wise loss and optimizer initialization
             if self.use_pair_loss:
-                self.y_hat = self.cross_raw
-                pos_hat_ = tf.expand_dims(self.y_hat[:, 0], 1)
-                neg_hat = self.y_hat[:, 1:tf.shape(self.y_hat)[1]]
-                pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1]])
-                pair_prop = tf.sigmoid(pos_hat - neg_hat) + epsilon
-                pair_loss_ = -tf.reshape(tf.log(pair_prop), [-1, tf.shape(neg_hat)[1]]) * self.target_mask
+                self.cross_sim = tf.reshape(self.cross_raw, [-1, tf.shape(self.cross_raw)[1]])
+                neg_hat = self.cross_sim[:, 1:tf.shape(self.cross_sim)[1]]
+                pos_hat = tf.tile(self.cross_sim[:, 0:1], [1, tf.shape(neg_hat)[1]])
+                pair_prop = tf.sigmoid(pos_hat - neg_hat)
+                pair_loss_ = -tf.reshape(tf.log(pair_prop+ epsilon), [-1, tf.shape(neg_hat)[1]]) * self.target_mask_pair
 
-                pair_loss = tf.reduce_mean(pair_loss_ * self.target_weight)
+                pair_loss = tf.reduce_sum(pair_loss_ * self.target_weight_pair) / tf.reduce_sum(self.target_mask_pair)
                 tf.summary.scalar('pair_loss', pair_loss)
                 self.loss = pair_loss
 
                 # Accuracy metric* self.target_mask
                 target_ = tf.ones(shape=(tf.shape(neg_hat)[0], tf.shape(neg_hat)[1]), dtype=np.float32)
 
-                pair_acc = tf.reduce_sum(tf.cast(tf.equal(tf.round(pair_prop), target_), tf.float32) * self.target_mask)
-                self.pair_accuracy = pair_acc / tf.reduce_sum(self.target_mask)
-                tf.summary.scalar('pair_accuracy', self.pair_accuracy)
+                pair_acc = tf.reduce_sum(tf.cast(tf.equal(tf.round(pair_prop-epsilon), target_), tf.float32) * self.target_mask_pair)
+                self.target_accuracy = pair_acc / tf.reduce_sum(self.target_mask_pair)
+                tf.summary.scalar('pair_accuracy', self.target_accuracy)
+
+                top1_prediction = tf.equal(tf.argmax(self.cross_sim * self.target_mask, 1), 0)
+                self.top1_accuracy = tf.reduce_mean(tf.cast(top1_prediction, tf.float32))
+                tf.summary.scalar('top1_accuracy', self.top1_accuracy)
+
+                top3_prediction = tf.less(tf.argmax(self.cross_sim * self.target_mask, 1), 3)
+                self.top3_accuracy = tf.reduce_mean(tf.cast(top3_prediction, tf.float32))
+                tf.summary.scalar('top3_accuracy', self.top3_accuracy)
 
             else:
                 # Cross-entropy loss and optimizer initialization
-                self.y_hat = tf.nn.softmax(self.cross_raw) + epsilon
                 ctr_loss_w = tf.reduce_sum(tf.log(self.y_hat) * self.label, 2) * self.target_mask * self.target_weight
                 ctr_loss = - tf.reduce_sum(ctr_loss_w) / tf.reduce_sum(self.target_mask)
                 tf.summary.scalar('ctr_loss', ctr_loss)
                 self.loss = ctr_loss
+
+                correct_prediction = tf.equal(tf.argmax(self.y_hat[:,:,0] * self.target_mask, 1), 0)
+                self.top1_accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+                tf.summary.scalar('top1_accuracy', self.top1_accuracy)
 
             if self.use_negsampling:
                 self.loss += self.aux_loss
@@ -223,8 +238,6 @@ class SeqEmbModel(BaseModel):
             tf.summary.scalar('loss', self.loss)
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
-            correct_prediction = tf.equal(tf.argmax(self.y_hat[:,:,0], 1), 0)
-            self.top1_accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-            tf.summary.scalar('top1_accuracy', self.top1_accuracy)
+
 
         self.merged = tf.summary.merge_all()
