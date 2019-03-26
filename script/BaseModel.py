@@ -29,7 +29,6 @@ class BaseModel(object):
         self.n_cat = conf['n_cat']
         self.n_tag = conf['n_tag']
         self.uid_embedding_dim = conf['uid_embedding_dim']
-        self.utype_embedding_dim = conf['utype_embedding_dim']
         self.mid_embedding_dim = conf['mid_embedding_dim']
         self.cat_embedding_dim = conf['cat_embedding_dim']
         self.tag_embedding_dim = conf['tag_embedding_dim']

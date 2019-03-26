@@ -95,17 +95,15 @@ class SeqEmbModel(BaseModel):
 
     def embeddingLayer(self):
         # Embedding layer
+        self.utype_batch_ph = tf.expand_dims(self.utype_batch_ph, -1)
         with tf.name_scope('Embedding_layer'):
-            self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
-            tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
-            self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
             if self.enable_uid:
                 self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
                 tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
                 self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
-                self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_embedded], 1)
+                self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_ph], 1)
             else:
-                self.user_batch_embedded = self.utype_batch_embedded
+                self.user_batch_embedded = self.utype_batch_ph
 
             self.mid_embeddings_var = tf.get_variable("mid_embedding_var", [self.n_mid, self.mid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
             tf.summary.histogram('mid_embeddings_var', self.mid_embeddings_var)
@@ -167,20 +165,32 @@ class SeqEmbModel(BaseModel):
             self.item_vec = self.build_item_vec(self.item_eb)
             self.user_vec_list = tf.tile(self.user_vec, [1, tf.shape(self.item_vec)[1]])
             self.user_vec_list = tf.reshape(self.user_vec_list, tf.shape(self.item_vec))
-            cross_raw = tf.multiply(self.user_vec_list, self.item_vec)
-            bn1 = tf.layers.batch_normalization(inputs=cross_raw, name='bn1')
-            dnn1 = tf.layers.dense(bn1, 50, activation=None, name='f1')
-            dnn1 = prelu(dnn1, 'prelu1')
-            dnn2 = tf.layers.dense(dnn1, 20, activation=None, name='f2' )
-            dnn2 = prelu(dnn2, 'prelu2')
-            dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
-            self.y_hat = tf.nn.softmax(dnn3) + epsilon
+            self.user_vec_normal  = tf.sqrt(tf.reduce_sum(tf.square(self.user_vec_list), 2, True))
+            self.item_vec_normal = tf.sqrt(tf.reduce_sum(tf.square(self.item_vec), 2, True))
+            gamma = 20.0
+            self.cross_raw = tf.multiply(self.user_vec_normal, self.item_vec_normal) * gamma
+
+    def ctr_accuracy(self):
+        # Generate label matrix
+        target_ = tf.expand_dims(self.target_ph, -1) - tf.constant(EPR_THRESHOLD, dtype=tf.float32)
+        label = tf.concat([target_, -target_], -1)
+        ones_ = tf.ones_like(label)
+        zeros_ = tf.zeros_like(label)
+        label = tf.where(label>0.0, x=ones_, y=zeros_)
+
+        # Accuracy metric
+        accuracy_masked = tf.cast(tf.equal(tf.round(self.y_hat[:,:,0]), label[:,:,0]), tf.float32) * self.target_mask
+        accuracy_ = tf.reduce_sum(accuracy_masked) / tf.reduce_sum(self.target_mask)
+        tf.summary.scalar('ctr_accuracy', accuracy_)
+
+        return label, accuracy_
 
     def metrics(self):
         with tf.name_scope('Metrics'):
+            self.label, self.target_accuracy = self.ctr_accuracy()
             # Pair-wise loss and optimizer initialization
             if self.use_pair_loss:
-                self.y_hat = self.y_hat[:,:,0] ### the 1st of 2d-softmax means positive probability
+                self.y_hat = self.cross_raw
                 pos_hat_ = tf.expand_dims(self.y_hat[:, 0], 1)
                 neg_hat = self.y_hat[:, 1:tf.shape(self.y_hat)[1]]
                 pos_hat = tf.tile(pos_hat_, multiples= [1, tf.shape(neg_hat)[1]])
@@ -192,26 +202,19 @@ class SeqEmbModel(BaseModel):
                 self.loss = pair_loss
 
                 # Accuracy metric* self.target_mask
-                target_ = tf.ones(shape=(tf.shape(neg_hat)[0], tf.shape(neg_hat)[1]), dtype=np.float32) * self.target_mask
-                self.target_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.round(pair_prop), target_), tf.float32))
-                tf.summary.scalar('pair_accuracy', self.target_accuracy)
+                target_ = tf.ones(shape=(tf.shape(neg_hat)[0], tf.shape(neg_hat)[1]), dtype=np.float32)
+
+                pair_acc = tf.reduce_sum(tf.cast(tf.equal(tf.round(pair_prop), target_), tf.float32) * self.target_mask)
+                self.pair_accuracy = pair_acc / tf.reduce_sum(self.target_mask)
+                tf.summary.scalar('pair_accuracy', self.pair_accuracy)
 
             else:
                 # Cross-entropy loss and optimizer initialization
-                target_ = tf.expand_dims(self.target_ph, -1) - tf.constant(EPR_THRESHOLD, dtype=tf.float32)
-                self.label = tf.concat([target_, -target_], -1)
-                ones_ = tf.ones_like(self.label)
-                zeros_ = tf.zeros_like(self.label)
-                self.label = tf.where(self.label>0.0, x=ones_, y=zeros_)
+                self.y_hat = tf.nn.softmax(self.cross_raw) + epsilon
                 ctr_loss_w = tf.reduce_sum(tf.log(self.y_hat) * self.label, 2) * self.target_mask * self.target_weight
                 ctr_loss = - tf.reduce_sum(ctr_loss_w) / tf.reduce_sum(self.target_mask)
                 tf.summary.scalar('ctr_loss', ctr_loss)
                 self.loss = ctr_loss
-
-                # Accuracy metric
-                accuracy_masked = tf.cast(tf.equal(tf.round(self.y_hat[:,:,0]), self.label[:,:,0]), tf.float32) * self.target_mask
-                self.target_accuracy = tf.reduce_sum(accuracy_masked) / tf.reduce_sum(self.target_mask)
-                tf.summary.scalar('ctr_accuracy', self.target_accuracy)
 
             if self.use_negsampling:
                 self.loss += self.aux_loss

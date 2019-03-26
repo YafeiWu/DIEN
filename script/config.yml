@@ -7,9 +7,8 @@ cat_voc: "data/cate_voc.json"
 tag_voc: "data/tag_voc.json"
 n_utype: 20
 batch_size: 1024
-learning_rate: 0.001
+learning_rate: 0.01
 uid_embedding_dim: 200
-utype_embedding_dim: 4
 mid_embedding_dim: 100
 cat_embedding_dim: 4
 tag_embedding_dim: 20
@@ -17,7 +16,7 @@ hidden_size: 64
 attention_size: 64
 enable_shuffle: True
 use_negsampling: True
-use_pair_loss: False
+use_pair_loss: True
 enable_uid: True
 enable_tag: True
 maxlen: 100
