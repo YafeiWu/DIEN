@@ -148,7 +148,9 @@ class SeqEmbModel(BaseModel):
 
     def build_user_vec(self, inp):
         with tf.name_scope('build_user_vec'):
+            tf.summary.histogram('user_eb', self.user_eb)
             bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1',training=self.for_training)
+            tf.summary.histogram('user_bn1_output', bn1)
             dnn1 = tf.layers.dense(bn1, 100, activation=None, name='user_f1')
             tf.summary.histogram('user_f1_output', dnn1)
             dnn1 = prelu(dnn1, 'user_prelu1')
@@ -156,7 +158,9 @@ class SeqEmbModel(BaseModel):
 
     def build_item_vec(self, inp):
         with tf.name_scope('build_item_vec'):
+            tf.summary.histogram('item_eb', self.item_eb)
             bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1',training=self.for_training)
+            tf.summary.histogram('item_bn1_output', bn1)
             dnn1 = tf.layers.dense(bn1, 100, activation=None, name='item_f1')
             tf.summary.histogram('item_f1_output', dnn1)
             dnn1 = prelu(dnn1, 'item_prelu1')
