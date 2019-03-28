@@ -144,14 +144,14 @@ class SeqEmbModel(BaseModel):
             his_weights = tf.expand_dims(self.weight_his_batch_ph, -1)
             his_weights = tf.tile(his_weights, [1, 1, tf.shape(self.item_his_eb)[2]])
             his_seq_sum = tf.reduce_sum(self.item_his_eb * his_weights, 1)
-            self.user_eb = tf.concat([self.user_batch_embedded, his_seq_sum, self.item_his_eb_sum], 1)
+            self.user_eb = tf.concat([self.user_batch_embedded, his_seq_sum], 1)
 
     def build_user_vec(self, inp):
         with tf.name_scope('build_user_vec'):
             tf.summary.histogram('user_eb', self.user_eb)
             bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1',training=self.for_training)
             tf.summary.histogram('user_bn1_output', bn1)
-            dnn1 = tf.layers.dense(bn1, 100, activation=None, name='user_f1')
+            dnn1 = tf.layers.dense(bn1, self.hidden_size, activation=None, name='user_f1')
             tf.summary.histogram('user_f1_output', dnn1)
             dnn1 = prelu(dnn1, 'user_prelu1')
             return dnn1
@@ -161,7 +161,7 @@ class SeqEmbModel(BaseModel):
             tf.summary.histogram('item_eb', self.item_eb)
             bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1',training=self.for_training)
             tf.summary.histogram('item_bn1_output', bn1)
-            dnn1 = tf.layers.dense(bn1, 100, activation=None, name='item_f1')
+            dnn1 = tf.layers.dense(bn1, self.hidden_size, activation=None, name='item_f1')
             tf.summary.histogram('item_f1_output', dnn1)
             dnn1 = prelu(dnn1, 'item_prelu1')
             return dnn1
