@@ -175,6 +175,7 @@ class SeqEmbModel(BaseModel):
             self.user_vec_normal  = tf.sqrt(tf.reduce_sum(tf.square(self.user_vec_list), 2, keepdims=True))
             self.item_vec_normal = tf.sqrt(tf.reduce_sum(tf.square(self.item_vec), 2, keepdims=True))
             self.cross_raw = tf.reduce_sum(tf.multiply(self.user_vec_list, self.item_vec), 2, keepdims=True) / tf.multiply(self.user_vec_normal, self.item_vec_normal)
+            self.cross_raw = prelu(self.cross_raw, 'product_prelu')
 
 
     def ctr_accuracy(self):
