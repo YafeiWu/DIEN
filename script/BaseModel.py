@@ -243,7 +243,7 @@ class BaseModel(object):
         self.save(sess, path+"--"+str(iter))
 
     def save(self, sess, path):
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(max_to_keep=5)
         saver.save(sess, save_path=path)
 
     def restore(self, sess, path):

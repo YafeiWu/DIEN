@@ -99,26 +99,26 @@ class SeqEmbModel(BaseModel):
         self.utype_batch_ph = tf.expand_dims(tf.cast(self.utype_batch_ph, dtype=tf.float32), -1)
         with tf.name_scope('Embedding_layer'):
             if self.enable_uid:
-                self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+                self.uid_embeddings_var = tf.get_variable("uid_embedding_var", [self.n_uid, self.uid_embedding_dim], initializer=tf.contrib.layers.xavier_initializer())
                 tf.summary.histogram('uid_embeddings_var', self.uid_embeddings_var)
                 self.uid_batch_embedded = tf.nn.embedding_lookup(self.uid_embeddings_var, self.uid_batch_ph)
                 self.user_batch_embedded = tf.concat([self.uid_batch_embedded, self.utype_batch_ph], 1)
             else:
                 self.user_batch_embedded = self.utype_batch_ph
 
-            self.mid_embeddings_var = tf.get_variable("mid_embedding_var", [self.n_mid, self.mid_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            self.mid_embeddings_var = tf.get_variable("mid_embedding_var", [self.n_mid, self.mid_embedding_dim], initializer=tf.contrib.layers.xavier_initializer())
             tf.summary.histogram('mid_embeddings_var', self.mid_embeddings_var)
             self.mid_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_batch_ph)
             self.mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_his_batch_ph)
 
-            self.cat_embeddings_var = tf.get_variable("cat_embedding_var", [self.n_cat, self.cat_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+            self.cat_embeddings_var = tf.get_variable("cat_embedding_var", [self.n_cat, self.cat_embedding_dim], initializer=tf.contrib.layers.xavier_initializer())
             tf.summary.histogram('cat_embeddings_var', self.cat_embeddings_var)
             self.cat_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_batch_ph)
             self.cat_his_batch_embedded = tf.nn.embedding_lookup(self.cat_embeddings_var, self.cat_his_batch_ph)
 
             if self.enable_tag:
                 self.item_feat_dim += self.tag_embedding_dim * self.fixTagsLen
-                self.tag_embeddings_var = tf.get_variable("tag_embedding_var", [self.n_tag, self.tag_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
+                self.tag_embeddings_var = tf.get_variable("tag_embedding_var", [self.n_tag, self.tag_embedding_dim], initializer=tf.contrib.layers.xavier_initializer())
                 tf.summary.histogram('tag_embeddings_var', self.tag_embeddings_var)
 
                 self.tags_batch_embedded = tf.nn.embedding_lookup(self.tag_embeddings_var, self.tags_batch_ph)
@@ -148,7 +148,7 @@ class SeqEmbModel(BaseModel):
 
     def build_user_vec(self, inp):
         with tf.name_scope('build_user_vec'):
-            bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1')
+            bn1 = tf.layers.batch_normalization(inputs=inp, name='user_bn1',training=self.for_training)
             dnn1 = tf.layers.dense(bn1, 100, activation=None, name='user_f1')
             tf.summary.histogram('user_f1_output', dnn1)
             dnn1 = prelu(dnn1, 'user_prelu1')
@@ -156,7 +156,7 @@ class SeqEmbModel(BaseModel):
 
     def build_item_vec(self, inp):
         with tf.name_scope('build_item_vec'):
-            bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1')
+            bn1 = tf.layers.batch_normalization(inputs=inp, name='item_bn1',training=self.for_training)
             dnn1 = tf.layers.dense(bn1, 100, activation=None, name='item_f1')
             tf.summary.histogram('item_f1_output', dnn1)
             dnn1 = prelu(dnn1, 'item_prelu1')
@@ -168,11 +168,10 @@ class SeqEmbModel(BaseModel):
             self.item_vec = self.build_item_vec(self.item_eb)
             self.user_vec_list = tf.tile(self.user_vec, [1, tf.shape(self.item_vec)[1]])
             self.user_vec_list = tf.reshape(self.user_vec_list, tf.shape(self.item_vec))
-            self.user_vec_normal  = tf.sqrt(tf.reduce_sum(tf.square(self.user_vec_list), 2, True))
-            self.item_vec_normal = tf.sqrt(tf.reduce_sum(tf.square(self.item_vec), 2, True))
-            gamma = 20.0
-            self.cross_raw = tf.multiply(self.user_vec_normal, self.item_vec_normal) * gamma
-            tf.summary.histogram('cross_raw', self.cross_raw)
+            self.user_vec_normal  = tf.sqrt(tf.reduce_sum(tf.square(self.user_vec_list), 2, keepdims=True))
+            self.item_vec_normal = tf.sqrt(tf.reduce_sum(tf.square(self.item_vec), 2, keepdims=True))
+            self.cross_raw = tf.reduce_sum(tf.multiply(self.user_vec_list, self.item_vec), 2, keepdims=True) / tf.multiply(self.user_vec_normal, self.item_vec_normal)
+
 
     def ctr_accuracy(self):
         # Generate label matrix
@@ -196,6 +195,7 @@ class SeqEmbModel(BaseModel):
             # Pair-wise loss and optimizer initialization
             if self.use_pair_loss:
                 self.cross_sim = tf.reshape(self.cross_raw, [-1, tf.shape(self.cross_raw)[1]])
+                tf.summary.histogram('cross_sim', self.cross_raw)
                 neg_hat = self.cross_sim[:, 1:tf.shape(self.cross_sim)[1]]
                 pos_hat = tf.tile(self.cross_sim[:, 0:1], [1, tf.shape(neg_hat)[1]])
                 pair_prop = tf.sigmoid(pos_hat - neg_hat)
@@ -236,8 +236,14 @@ class SeqEmbModel(BaseModel):
                 tf.summary.scalar('aux_loss', self.aux_loss)
 
             tf.summary.scalar('loss', self.loss)
-            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                raw_optimizer = tf.train.AdamOptimizer(learning_rate=self.lr)
+                self.optimizer = raw_optimizer.minimize(self.loss)
+                self.grads = raw_optimizer.compute_gradients(self.loss)
+                for g in self.grads:
+                    tf.summary.histogram("%s-grad" % g[1].name, g[0])
 
-
+                self.optimizer = raw_optimizer.apply_gradients(self.grads)
 
         self.merged = tf.summary.merge_all()

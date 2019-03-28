@@ -99,6 +99,8 @@ def train(conf, seed):
                     loss_sum,  aux_loss_sum, top1_acc_sum, target_acc_sum,= 0., 0., 0., 0.
                     test_loss_sum, test_aux_loss_sum, test_top1_acc_sum, test_target_acc_sum, = 0., 0., 0., 0.
                     start_ = time.time()
+                if iter % conf['save_iter'] == 0:
+                    model.save(sess, best_model_path)
 
                 if (iter % conf['lr_decay_steps']) == 0:
                     lr *= 0.5
