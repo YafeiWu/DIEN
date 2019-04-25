@@ -85,7 +85,7 @@ class BaseModel(object):
         feat_group = {}
         cur_offset = 0
         for feat_name, feat_width in feat_names:
-            feat_group[feat_name] = UserSeqFeature(fname=feat_name,foffset=cur_offset,fends=cur_offset+feat_width,fwidth=feat_width)
+            feat_group[feat_name] = UserSeqFeature(f_name=feat_name,f_offset=cur_offset,f_ends=cur_offset+feat_width,f_width=feat_width)
             cur_offset += feat_width
             print("featGroupV0:\t{}".format(feat_group[feat_name]))
         return feat_group
@@ -94,11 +94,14 @@ class BaseModel(object):
         foffset = getattr(self.feat_group[fname], 'f_offset')
         fends = getattr(self.feat_group[fname],'f_ends')
         fwidth = getattr(self.feat_group[fname],'f_width')
+        ftype = getattr(self.feat_group[fname],'f_type', None)
         # print("\tDEBUG fname :{}, fwidth: {}, foffset:{}, fends:{}".format(fname, fwidth, foffset, fends))
-        if fwidth>1:
-            return feats_batches[:, foffset: fends]
+        feat = feats_batches[:, foffset: fends] if fwidth>1 else feats_batches[:, foffset]
+        if ftype:
+            return tf.cast(feat, dtype=ftype)
         else:
-            return feats_batches[:, foffset]
+            feat
+
 
     def prepare_from_base64(self, file, for_training=False):
         dataset = tf.data.TextLineDataset(file)

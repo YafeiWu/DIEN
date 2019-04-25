@@ -22,6 +22,8 @@ class SeqEmbModel(BaseModel):
     def __init__(self, conf, task="train"):
         super(SeqEmbModel, self).__init__(conf,task)
         self.aux_loss = tf.constant(0., dtype=tf.float32)
+        self.l1_loss = 0.0
+        self.l2_loss = 0.0
         self.feat_group = self.featGroup()
         self.inputsLayer()
         self.build_model()
@@ -44,7 +46,7 @@ class SeqEmbModel(BaseModel):
         feat_group = {}
         cur_offset = 0
         for feat_name, feat_width in feat_names:
-            feat_group[feat_name] = UserSeqFeature(fname=feat_name,foffset=cur_offset,fends=cur_offset+feat_width,fwidth=feat_width)
+            feat_group[feat_name] = UserSeqFeature(f_name=feat_name,f_offset=cur_offset,f_ends=cur_offset+feat_width,f_width=feat_width)
             cur_offset += feat_width
             print("featGroup:\t{}".format(feat_group[feat_name]))
         return feat_group
@@ -168,8 +170,14 @@ class SeqEmbModel(BaseModel):
 
     def user_cross_item(self):
         with tf.name_scope('user_cross_item'):
+            self.l1_loss += tf.reduce_mean(tf.abs(self.user_eb))
+            self.l2_loss += tf.reduce_mean(tf.nn.l2_loss(self.user_eb))
+            self.l1_loss += tf.reduce_mean(tf.abs(self.item_eb))
+            self.l2_loss += tf.reduce_mean(tf.nn.l2_loss(self.item_eb))
+
             self.user_vec = self.build_user_vec(self.user_eb)
             self.item_vec = self.build_item_vec(self.item_eb)
+
             self.user_vec_list = tf.tile(self.user_vec, [1, tf.shape(self.item_vec)[1]])
             self.user_vec_list = tf.reshape(self.user_vec_list, tf.shape(self.item_vec))
             self.user_vec_normal  = tf.sqrt(tf.reduce_sum(tf.square(self.user_vec_list), 2, keepdims=True))
@@ -239,6 +247,10 @@ class SeqEmbModel(BaseModel):
             if self.use_negsampling:
                 self.loss += self.aux_loss
                 tf.summary.scalar('aux_loss', self.aux_loss)
+
+            self.loss += self.l1_loss + self.l2_loss
+            tf.summary.scalar('l1_loss', self.l1_loss)
+            tf.summary.scalar('l2_loss', self.l2_loss)
 
             tf.summary.scalar('loss', self.loss)
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
