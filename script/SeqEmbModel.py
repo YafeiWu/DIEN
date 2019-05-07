@@ -26,7 +26,7 @@ class SeqEmbModel(BaseModel):
         self.l2_loss = 0.0
         self.feat_group = self.featGroup()
         self.inputsLayer()
-        self.build_model()
+        self.build_PNNModel()
 
     def featGroup(self):
         feat_names = [
@@ -96,6 +96,33 @@ class SeqEmbModel(BaseModel):
         self.user_cross_item()
         self.metrics()
 
+    def build_PNNModel(self):
+        self.embeddingLayer()
+        self.concatLayer()
+        self.use_negsampling = False
+        self.user_eb_exp = tf.tile(self.user_eb, [1, tf.shape(self.item_eb)[1]])
+        self.user_eb_exp = tf.reshape(self.user_eb_exp, [self.batch_size, tf.shape(self.item_eb)[1], -1])
+        inp = tf.concat([self.user_eb_exp, self.item_eb], 2)
+        # Fully connected layer
+        self.build_fcn_net(inp, use_dice=False)
+        self.metrics()
+
+    def build_fcn_net(self, inp, use_dice = False):
+        bn1 = tf.layers.batch_normalization(inputs=inp, name='bn1')
+        dnn1 = tf.layers.dense(bn1, 200, activation=None, name='f1')
+        if use_dice:
+            dnn1 = dice(dnn1, name='dice_1')
+        else:
+            dnn1 = prelu(dnn1, 'prelu1')
+
+        dnn2 = tf.layers.dense(dnn1, 80, activation=None, name='f2')
+        if use_dice:
+            dnn2 = dice(dnn2, name='dice_2')
+        else:
+            dnn2 = prelu(dnn2, 'prelu2')
+        dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
+        self.y_hat = tf.nn.softmax(dnn3) + epsilon
+
     def embeddingLayer(self):
         # Embedding layer
         self.utype_batch_ph = tf.expand_dims(tf.cast(self.utype_batch_ph, dtype=tf.float32), -1)
@@ -141,6 +168,10 @@ class SeqEmbModel(BaseModel):
 
             self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
 
+            for embedding_var in [self.uid_batch_embedded, self.mid_embeddings_var, self.cat_embeddings_var, self.tag_embeddings_var]:
+                self.l1_loss += tf.reduce_mean(tf.abs(embedding_var))
+                self.l2_loss += tf.reduce_mean(tf.nn.l2_loss(embedding_var))
+
     def concatLayer(self):
         with tf.name_scope('concat_user_seq'):
             his_weights = tf.expand_dims(self.weight_his_batch_ph, -1)
@@ -170,21 +201,15 @@ class SeqEmbModel(BaseModel):
 
     def user_cross_item(self):
         with tf.name_scope('user_cross_item'):
-            self.l1_loss += tf.reduce_mean(tf.abs(self.user_eb))
-            self.l2_loss += tf.reduce_mean(tf.nn.l2_loss(self.user_eb))
-            self.l1_loss += tf.reduce_mean(tf.abs(self.item_eb))
-            self.l2_loss += tf.reduce_mean(tf.nn.l2_loss(self.item_eb))
-
             self.user_vec = self.build_user_vec(self.user_eb)
             self.item_vec = self.build_item_vec(self.item_eb)
-
             self.user_vec_list = tf.tile(self.user_vec, [1, tf.shape(self.item_vec)[1]])
             self.user_vec_list = tf.reshape(self.user_vec_list, tf.shape(self.item_vec))
             self.user_vec_normal  = tf.sqrt(tf.reduce_sum(tf.square(self.user_vec_list), 2, keepdims=True))
             self.item_vec_normal = tf.sqrt(tf.reduce_sum(tf.square(self.item_vec), 2, keepdims=True))
             self.cross_raw = tf.reduce_sum(tf.multiply(self.user_vec_list, self.item_vec), 2, keepdims=True) / tf.multiply(self.user_vec_normal, self.item_vec_normal)
             self.cross_raw = prelu(self.cross_raw, 'product_prelu')
-
+            self.y_hat = tf.nn.softmax(self.cross_raw) + epsilon
 
     def ctr_accuracy(self):
         # Generate label matrix
@@ -203,8 +228,7 @@ class SeqEmbModel(BaseModel):
 
     def metrics(self):
         with tf.name_scope('Metrics'):
-            self.y_hat = tf.nn.softmax(self.cross_raw) + epsilon
-            self.label, self.ctr_accuracy = self.ctr_accuracy()
+            self.label, self.ctr_acc = self.ctr_accuracy()
             # Pair-wise loss and optimizer initialization
             if self.use_pair_loss:
                 self.cross_sim = tf.reshape(self.cross_raw, [-1, tf.shape(self.cross_raw)[1]])
@@ -239,6 +263,7 @@ class SeqEmbModel(BaseModel):
                 ctr_loss = - tf.reduce_sum(ctr_loss_w) / tf.reduce_sum(self.target_mask)
                 tf.summary.scalar('ctr_loss', ctr_loss)
                 self.loss = ctr_loss
+                self.target_accuracy = self.ctr_acc
 
                 correct_prediction = tf.equal(tf.argmax(self.y_hat[:,:,0] * self.target_mask, 1), 0)
                 self.top1_accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))

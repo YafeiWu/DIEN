@@ -1,6 +1,7 @@
 import numpy
 import tensorflow as tf
 from SeqEmbModel import *
+from SessionModel import *
 import time
 import random
 import sys
@@ -52,7 +53,10 @@ def train(conf, seed):
         intra_op_parallelism_threads=0,
         allow_soft_placement=True)
     with tf.Session(config=session_config) as sess:
-        model = SeqEmbModel(conf)
+        if conf['model_type'] == 'SEMB':
+            model = SeqEmbModel(conf)
+        elif conf['model_type'] == 'SESS':
+            model = SessionModel(conf)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         tf.summary.FileWriter(conf['logdir'], sess.graph)
@@ -124,7 +128,10 @@ def test(conf, seed):
         intra_op_parallelism_threads=0,
         allow_soft_placement=True)
     with tf.Session(config=session_config) as sess:
-        model = SeqEmbModel(conf, task="test")
+        if conf['model_type'] == 'SEMB':
+            model = SeqEmbModel(conf, task='test')
+        elif conf['model_type'] == 'SESS':
+            model = SessionModel(conf, task='test')
         latest_model = tf.train.latest_checkpoint(model_dir)
         model.restore(sess, latest_model)
         #### test_batches=100 test for all, get per_user_auc
