@@ -33,6 +33,7 @@ class SessionModel(BaseModel):
         self.label = None
         self.target_ph = None
         self.weight = None
+        self.uid_batch_ph = None
         self.user_feats = None
         self.item_feats = None
         self.item_his_eb = None
@@ -55,7 +56,7 @@ class SessionModel(BaseModel):
     def run(self):
         self.featGroup()
         self.pnn_processor()
-        self.build_fcn_net(self.fc_inputs)
+        self.build_fcn_one(self.fc_inputs)
         self.metrics()
 
     def reset_features(self):
@@ -111,6 +112,8 @@ class SessionModel(BaseModel):
                 batch_ph = self.get_one_group(feats_batches, f)
                 if f.f_name == "label":
                     self.label = batch_ph
+                elif f.f_name == "user_id":
+                    self.uid_batch_ph = batch_ph
                 elif f.f_name == "tar_weight":
                     self.weight = batch_ph
                 elif f.f_name == "seq_size":
@@ -129,11 +132,11 @@ class SessionModel(BaseModel):
 
                 eb_name = f.f_group + "_em_var"
                 if eb_name not in self.eb_var:
-                    self.eb_var[eb_name] =  tf.get_variable(eb_name, [f.f_max, self.global_embedding_size], initializer=tf.contrib.layers.xavier_initializer())
+                    self.eb_var[eb_name] =  tf.get_variable(eb_name, [f.f_max, self.global_embedding_size], initializer=tf.truncated_normal_initializer(stddev=0.01), regularizer=self.regularizer)
 
                 raw_embedding = tf.nn.embedding_lookup(self.eb_var[eb_name], batch_ph)
-                self.l1_losses.append(tf.reduce_mean(tf.abs(raw_embedding)))
-                self.l2_losses.append(tf.nn.l2_loss(raw_embedding)/self.batch_size)
+                # self.l1_losses.append(tf.reduce_mean(tf.abs(raw_embedding)))
+                # self.l2_losses.append(tf.nn.l2_loss(raw_embedding)/self.batch_size)
                 tf.summary.histogram('{}_em'.format(f.f_name), raw_embedding)
                 tf.summary.histogram(eb_name, self.eb_var[eb_name])
                 if f.f_seqsize >1:
@@ -185,6 +188,11 @@ class SessionModel(BaseModel):
         target_ph_ = tf.where(label>0.0, x=ones_, y=zeros_)
         return target_ph_
 
+    def build_fcn_one(self, inp):
+        bn1 = tf.layers.batch_normalization(inputs=inp, name='bn1')
+        dnn1 = tf.layers.dense(bn1, 2, activation=None, name='f1', kernel_regularizer=self.regularizer)
+        self.y_hat = tf.nn.softmax(dnn1) + 0.00000001
+
     def build_fcn_net(self, inp, use_dice = False):
         bn1 = tf.layers.batch_normalization(inputs=inp, name='bn1')
         dnn1 = tf.layers.dense(bn1, 200, activation=None, name='f1')
@@ -210,15 +218,15 @@ class SessionModel(BaseModel):
             if self.use_negsampling:
                 self.loss += self.aux_loss
 
-            l1_loss = tf.reduce_mean(self.l1_losses)
-            l2_loss = tf.reduce_mean(self.l2_losses)
 
-            self.loss += 0.01 * l1_loss
-            self.loss += 0.01 * l2_loss
+            # l1_loss = tf.reduce_mean(self.l1_losses)
+            # l2_loss = tf.reduce_mean(self.l2_losses)
+            reg_set = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+            l2_loss = tf.add_n(reg_set)
+            self.loss += l2_loss
 
             tf.summary.scalar('loss', self.loss)
             tf.summary.scalar('ctr_loss', ctr_loss)
-            tf.summary.scalar('l1_loss', l1_loss)
             tf.summary.scalar('l2_loss', l2_loss)
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
