@@ -43,17 +43,19 @@ class SessionModel(BaseModel):
         self.optimizer = None
         self.loss = None
         self.aux_loss = tf.constant(0., dtype=tf.float32)
-        self.l1_loss = tf.constant(0., dtype=tf.float32)
-        self.l2_loss = tf.constant(0., dtype=tf.float32)
-        self.merged = None
+        self.l1_losses = []
+        self.l2_losses = []
         self.top1_accuracy = tf.constant(0., dtype=tf.float32)
         self.target_accuracy = tf.constant(0., dtype=tf.float32)
+        self.merged = None
+
+        self.run()
 
 
     def run(self):
         self.featGroup()
         self.pnn_processor()
-        self.build_fcn_net()
+        self.build_fcn_net(self.fc_inputs)
         self.metrics()
 
     def reset_features(self):
@@ -64,39 +66,37 @@ class SessionModel(BaseModel):
         self.item_his_eb = None
         self.item_his_eb_sum = None
         self.aux_loss = tf.constant(0., dtype=tf.float32)
-        self.l1_loss = tf.constant(0., dtype=tf.float32)
-        self.l2_loss = tf.constant(0., dtype=tf.float32)
+        self.l1_losses = []
+        self.l2_losses = []
 
     def featGroup(self):
         self.feat_group = [
-            UserSeqFeature(fname="label", f_group='label',f_offset=0, f_ends=0, f_width=1, f_type=tf.float32, f_seqsize=1, fembedding=False),
-            UserSeqFeature(fname="user_id", f_group='uid',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_uid),
-            UserSeqFeature(fname="tar_weight", f_group='stats', f_offset=-1, f_ends=-1, f_width=1, f_type=tf.float32, f_seqsize=1, fembedding=False),
-            UserSeqFeature(fname="tar_item", f_group='vid', f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_mid),
-            UserSeqFeature(fname="tar_cat", f_group='category',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_cat),
-            UserSeqFeature(fname="tar_tags", f_group='tag',f_offset=-1, f_ends=-1, f_width=self.fixTagsLen, f_type=tf.int32, f_seqsize=1, f_max=self.n_tag),
-            UserSeqFeature(fname="seq_item", f_group='vid',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=self.maxLen, f_max=self.n_mid),
-            UserSeqFeature(fname="seq_cat", f_group='category',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=self.maxLen, f_max=self.n_cat),
-            UserSeqFeature(fname="seq_tags", f_group='tag',f_offset=-1, f_ends=-1, f_width=self.fixTagsLen, f_type=tf.int32, f_seqsize=self.maxLen, f_max=self.n_tag)
+            UserSeqFeature(f_name="label", f_group='label',f_offset=0, f_ends=0, f_width=1, f_type=tf.float32, f_seqsize=1, f_embedding=False),
+            UserSeqFeature(f_name="user_id", f_group='uid',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_uid),
+            UserSeqFeature(f_name="tar_weight", f_group='stats', f_offset=-1, f_ends=-1, f_width=1, f_type=tf.float32, f_seqsize=1, f_embedding=False),
+            UserSeqFeature(f_name="tar_item", f_group='vid', f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_mid),
+            UserSeqFeature(f_name="tar_cat", f_group='category',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_cat),
+            UserSeqFeature(f_name="tar_tags", f_group='tag',f_offset=-1, f_ends=-1, f_width=self.fixTagsLen, f_type=tf.int32, f_seqsize=1, f_max=self.n_tag),
+            UserSeqFeature(f_name="seq_size", f_group='stats',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_embedding=False),
+            UserSeqFeature(f_name="seq_item", f_group='vid',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=self.maxLen, f_max=self.n_mid),
+            UserSeqFeature(f_name="seq_cat", f_group='category',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=self.maxLen, f_max=self.n_cat),
+            UserSeqFeature(f_name="seq_tags", f_group='tag',f_offset=-1, f_ends=-1, f_width=self.fixTagsLen, f_type=tf.int32, f_seqsize=self.maxLen, f_max=self.n_tag),
+            UserSeqFeature(f_name="seq_weights", f_group='stats',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=self.maxLen, f_embedding=False)
         ]
         cur_offset = 0
         for u_feat in self.feat_group:
             u_feat.f_offset = cur_offset
-            u_feat.f_ends = cur_offset + u_feat.f_width
-            cur_offset += u_feat.f_width
-            print("INFO -> Raw feature :\t{}".format(u_feat))
+            u_feat.f_ends = cur_offset + u_feat.f_width * u_feat.f_seqsize
+            cur_offset = u_feat.f_ends
+            print("INFO -> Raw Feature Group :\t{}".format(u_feat))
 
-    def get_one_group(self, feats_batches, u_feat):
-        f_offset = getattr(u_feat, 'f_offset')
-        f_ends = getattr(u_feat,'f_ends')
-        f_width = getattr(u_feat,'f_width')
-        f_type = getattr(u_feat,'f_type')
-        print("\tDEBUG f_name :{}, f_width: {}, f_offset:{}, f_ends:{}".format(f_name, f_width, f_offset, f_ends))
-        feat = feats_batches[:, f_offset: f_ends] if f_width>1 else feats_batches[:, f_offset]
-        if f_type != tf.int32:
-            return tf.cast(feat, dtype=f_type)
+    def get_one_group(self, feats_batches, f):
+        print("DEBUG INFO -> f_name :{}, f_width: {}, f_seqsize:{}, f_offset:{}, f_ends:{}".format(f.f_name, f.f_width, f.f_seqsize, f.f_offset, f.f_ends))
+        feat = feats_batches[:, f.f_offset: f.f_ends] if f.f_width * f.f_seqsize >1 else feats_batches[:, f.f_offset]
+        if f.f_type != tf.int32:
+            return tf.cast(feat, dtype=f.f_type)
         else:
-            feat
+            return feat
 
     def pnn_processor(self):
         with tf.name_scope('Input'):
@@ -108,19 +108,34 @@ class SessionModel(BaseModel):
             self.reset_features()
 
             for f in self.feat_group:
-                batch_ph = self.get_one_group(feats_batches, f.f_name)
+                batch_ph = self.get_one_group(feats_batches, f)
                 if f.f_name == "label":
                     self.label = batch_ph
-                elif f.f_name == "weight":
+                elif f.f_name == "tar_weight":
                     self.weight = batch_ph
+                elif f.f_name == "seq_size":
+                    mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
+                    mask = tf.sequence_mask(batch_ph, mask.shape[1], dtype=tf.float32)
+
+                print_tensor = tf.Print(batch_ph, [batch_ph], message="DEBUG INFO -> This is one {} batch_ph : ".format(f.f_name))
+                try:
+                    batch_shape = print_tensor.eval().shape
+                except Exception as e:
+                    batch_shape = print_tensor.eval().length
+                print("DEBUG INFO -> This is one {} batch_ph shape : {} \n{}".format(f.f_name, batch_shape, print_tensor.eval()))
 
                 if not f.f_embedding:
                     continue
 
-                eb_name = f.f_group + "_embedding"
-                if f.f_group not in self.eb_var:
-                    self.eb_var[eb_name] =  tf.get_variable("{}_var".format(eb_name), [self.f_max, self.global_embedding_size], initializer=tf.contrib.layers.xavier_initializer())
+                eb_name = f.f_group + "_em_var"
+                if eb_name not in self.eb_var:
+                    self.eb_var[eb_name] =  tf.get_variable(eb_name, [f.f_max, self.global_embedding_size], initializer=tf.contrib.layers.xavier_initializer())
+
                 raw_embedding = tf.nn.embedding_lookup(self.eb_var[eb_name], batch_ph)
+                self.l1_losses.append(tf.reduce_mean(tf.abs(raw_embedding)))
+                self.l2_losses.append(tf.nn.l2_loss(raw_embedding)/self.batch_size)
+                tf.summary.histogram('{}_em'.format(f.f_name), raw_embedding)
+                tf.summary.histogram(eb_name, self.eb_var[eb_name])
                 if f.f_seqsize >1:
                     ### aggregate user's item history features
                     if f.f_width >1:
@@ -155,7 +170,10 @@ class SessionModel(BaseModel):
                             self.item_feats = tf.concat([self.item_feats, embedding], 1)
 
         with tf.name_scope("Concat"):
-            self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
+            ### mask non_clciked history
+            mask = tf.expand_dims(mask, -1)
+            mask = tf.tile(mask, [1, 1, tf.shape(self.item_his_eb)[2]])
+            self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb * mask, 1)
             self.fc_inputs = tf.concat([self.user_feats, self.item_feats, self.item_his_eb_sum,
                                   self.item_feats * self.item_his_eb_sum], 1)
 
@@ -192,16 +210,16 @@ class SessionModel(BaseModel):
             if self.use_negsampling:
                 self.loss += self.aux_loss
 
-            # L1/L2 loss
-            for embedding_var in self.eb_var:
-                self.l1_loss += tf.reduce_mean(tf.abs(embedding_var))
-                self.l2_loss += tf.reduce_mean(tf.nn.l2_loss(embedding_var))
-            self.loss += self.l1_loss
-            self.loss += self.l2_loss
+            l1_loss = tf.reduce_mean(self.l1_losses)
+            l2_loss = tf.reduce_mean(self.l2_losses)
+
+            self.loss += 0.01 * l1_loss
+            self.loss += 0.01 * l2_loss
 
             tf.summary.scalar('loss', self.loss)
-            tf.summary.scalar('l1_loss', self.l1_loss)
-            tf.summary.scalar('l2_loss', self.l2_loss)
+            tf.summary.scalar('ctr_loss', ctr_loss)
+            tf.summary.scalar('l1_loss', l1_loss)
+            tf.summary.scalar('l2_loss', l2_loss)
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
             # Accuracy metric
