@@ -195,8 +195,7 @@ class SessionModel(BaseModel):
         return target_ph_
 
     def build_fcn_one(self, inp):
-        bn1 = tf.layers.batch_normalization(inputs=inp, name='bn1')
-        dnn1 = tf.layers.dense(bn1, 2, activation=None, name='f1', kernel_regularizer=self.regularizer)
+        dnn1 = tf.layers.dense(inp, 2, activation=None, name='f1', kernel_regularizer=self.regularizer)
         self.y_hat = tf.nn.softmax(dnn1) + 0.00000001
 
     def build_fcn_net(self, inp, use_dice = False):
