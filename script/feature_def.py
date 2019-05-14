@@ -4,7 +4,7 @@ import tensorflow as tf
 logging.basicConfig(level=logging.INFO)
 
 class UserSeqFeature:
-    def __init__(self,f_name="", f_offset=0, f_ends=0, f_width=1, f_type=tf.int32, f_embedding=True, f_max=None, f_group='', f_seqsize=1):
+    def __init__(self,f_name="", f_offset=0, f_ends=0, f_width=1, f_type=tf.int32, f_embedding=True, f_max=None, f_group='', f_seqsize=1, f_mask=False):
         self.f_name = f_name
         self.f_offset = f_offset
         self.f_ends = f_ends
@@ -14,12 +14,14 @@ class UserSeqFeature:
         self.f_max = f_max
         self.f_group = f_group
         self.f_seqsize = f_seqsize
+        self.f_mask = f_mask
 
     def __str__(self):
         return "UserSeqFeature({})".format(json.dumps({'f_name': self.f_name, 'f_offset': self.f_offset,
                                                        'f_ends': self.f_ends, 'f_width': self.f_width,
                                                        'f_embedding': self.f_embedding, 'f_max': self.f_max,
-                                                       'f_group':self.f_group, 'f_seqsize': self.f_seqsize
+                                                       'f_group':self.f_group, 'f_seqsize': self.f_seqsize,
+                                                       'f_mask':self.f_mask
                                                        }))
 
     def copy(self,another_feat):
@@ -32,3 +34,4 @@ class UserSeqFeature:
         self.f_max = another_feat.f_max
         self.f_group = another_feat.f_group
         self.f_seqsize = another_feat.f_seqsize
+        self.f_mask = another_feat.f_mask
