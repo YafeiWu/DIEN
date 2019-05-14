@@ -50,7 +50,7 @@ def train(conf, seed):
     best_model_path = conf['best_model_path'] + str(seed)
     train_writer = tf.summary.FileWriter("{}/train".format(conf['logdir']))
     test_writer = tf.summary.FileWriter("{}/test".format(conf['logdir']))
-    test_iter = conf['test_iter']
+    test_iter = conf['save_iter']
     session_config = tf.ConfigProto(
         inter_op_parallelism_threads=0,
         intra_op_parallelism_threads=0,
@@ -83,37 +83,47 @@ def train(conf, seed):
                 top1_acc_sum += top1_acc
                 target_acc_sum += target_acc
                 train_writer.add_summary(train_merged_summary, iter)
+                print('iter: %d ----> train_loss: %.4f ---- train_aux_loss: %.4f ---- train_top1_accuracy: %.4f ---- train_target_accuracy: %.4f' % \
+                      (iter, loss_sum / test_iter, aux_loss_sum / test_iter, top1_acc_sum / test_iter, target_acc_sum / test_iter))
 
-                test_loss, test_aux_loss, test_top1_acc, test_target_acc, test_merged_summary = model.test(sess, [False, lr])
-                test_loss_sum += test_loss
-                test_aux_loss_sum += test_aux_loss
-                test_top1_acc_sum += test_top1_acc
-                test_target_acc_sum += test_target_acc
-                test_writer.add_summary(test_merged_summary, iter)
+                if test_iter == 1:
+                    test_loss, test_aux_loss, test_top1_acc, test_target_acc, test_merged_summary = model.test(sess, [False, lr])
+                    test_loss_sum += test_loss
+                    test_aux_loss_sum += test_aux_loss
+                    test_top1_acc_sum += test_top1_acc
+                    test_target_acc_sum += test_target_acc
+                    test_writer.add_summary(test_merged_summary, iter)
 
-                if (iter % test_iter) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_aux_loss: %.4f ---- train_top1_accuracy: %.4f ---- train_target_accuracy: %.4f' % \
                                           (iter, loss_sum / test_iter, aux_loss_sum / test_iter, top1_acc_sum / test_iter, target_acc_sum / test_iter))
 
-                    # test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter, test_batches=100)
                     print('iter: %d ----> test_loss: %.4f ---- test_aux_loss: %.4f ---- test_top1_accuracy: %.4f ---- test_target_accuracy: %.4f' % \
                           (iter, test_loss_sum / test_iter, test_aux_loss_sum / test_iter, test_top1_acc_sum / test_iter, test_target_acc_sum / test_iter))
 
-                    # print('iter: {} ----> test_auc: {} ---- test_user_auc: {} '.format(iter, test_auc, test_user_auc))
                     print('iter: {} ----> learning rate: {}. {} iters take time: {}'.format(iter, lr, test_iter, time.time()- start_))
+
+                    if iter % conf['save_iter'] == 0:
+                        model.update_best_model(sess, best_model_path, iter)
 
                     sys.stdout.flush()
                     loss_sum,  aux_loss_sum, top1_acc_sum, target_acc_sum,= 0., 0., 0., 0.
                     test_loss_sum, test_aux_loss_sum, test_top1_acc_sum, test_target_acc_sum, = 0., 0., 0., 0.
                     start_ = time.time()
-                if iter % conf['save_iter'] == 0:
-                    model.update_best_model(sess, best_model_path, iter)
+
+                elif iter % test_iter == 0:
+                    test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter=iter, test_batches=test_iter)
+                    print('iter: %d ----> test_loss: %.4f ---- test_aux_loss: %.4f ---- test_accuracy: %.4f ---- test_auc: %.4f ---- test_user_auc: %.4f' % \
+                          (iter, test_loss, test_aux_loss, test_accuracy, test_auc, test_user_auc))
+
+                    sys.stdout.flush()
+                    loss_sum,  aux_loss_sum, top1_acc_sum, target_acc_sum,= 0., 0., 0., 0.
+                    test_loss_sum, test_aux_loss_sum, test_top1_acc_sum, test_target_acc_sum, = 0., 0., 0., 0.
+                    start_ = time.time()
 
                 if (iter % conf['lr_decay_steps']) == 0:
                     lr *= 0.5
 
             except Exception as e:
-                print("training Error : {}".format(traceback.format_exc(e)))
                 print("End of training dataset")  # ==> "End of training dataset"
                 break
 
