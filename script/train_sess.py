@@ -89,18 +89,13 @@ def train(conf, seed):
                           (iter, loss_sum / test_iter, aux_loss_sum / test_iter, top1_acc_sum / test_iter, target_acc_sum / test_iter))
 
                     test_loss, test_aux_loss, test_top1_acc, test_target_acc, test_merged_summary = model.test(sess, [False, lr])
-                    test_loss_sum += test_loss
-                    test_aux_loss_sum += test_aux_loss
-                    test_top1_acc_sum += test_top1_acc
-                    test_target_acc_sum += test_target_acc
                     test_writer.add_summary(test_merged_summary, iter)
 
                     print('iter: %d ----> test_loss: %.4f ---- test_aux_loss: %.4f ---- test_top1_accuracy: %.4f ---- test_target_accuracy: %.4f' % \
-                          (iter, test_loss_sum / test_iter, test_aux_loss_sum / test_iter, test_top1_acc_sum / test_iter, test_target_acc_sum / test_iter))
+                          (iter, test_loss, test_aux_loss, test_top1_acc , test_target_acc))
 
                     sys.stdout.flush()
                     loss_sum,  aux_loss_sum, top1_acc_sum, target_acc_sum,= 0., 0., 0., 0.
-                    test_loss_sum, test_aux_loss_sum, test_top1_acc_sum, test_target_acc_sum, = 0., 0., 0., 0.
 
                 if iter % conf['save_iter'] == 0:
 

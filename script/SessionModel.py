@@ -26,7 +26,7 @@ class SessionModel(BaseModel):
         self.use_negsampling = False
 
         self.global_embedding_size = 32
-        self.regularizer = tf.contrib.layers.l2_regularizer(scale=0.001)
+        self.regularizer = tf.contrib.layers.l2_regularizer(scale=0.01)
         self.eb_var = {}
 
         self.feat_group = []
