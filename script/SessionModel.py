@@ -112,6 +112,10 @@ class SessionModel(BaseModel):
                 batch_ph = self.get_one_group(feats_batches, f)
                 if f.f_name == "label":
                     self.label = batch_ph
+                    label_sum = tf.reduce_sum(batch_ph)/self.batch_size
+                    print_tensor = tf.Print(label_sum, [label_sum], message="DEBUG INFO -> label_sum : ")
+                    print("DEBUG INFO -> label_sum  : {}".format(print_tensor.eval()))
+
                 elif f.f_name == "user_id":
                     self.uid_batch_ph = batch_ph
                 elif f.f_name == "tar_weight":

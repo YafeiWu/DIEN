@@ -18,7 +18,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     stored_arr = []
     for nums in range(1,test_batches+1):
         try:
-            prob, target, uids, loss, acc, aux_loss = model.calculate(sess, [False, 0.0])
+            prob, target, uids, loss, aux_loss, top1_acc, acc = model.calculate(sess, [False, 0.0])
             loss_sum += loss
             aux_loss_sum = aux_loss
             accuracy_sum += acc
@@ -38,6 +38,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
     loss_sum = loss_sum / nums
     aux_loss_sum = aux_loss_sum / nums
     global best_auc
+    print("INFO -> Eval test_auc #{}, best_auc #{}".format(test_auc, best_auc))
     if iter is not None and best_auc < test_auc:
         model.update_best_model(sess, best_model_path, iter)
         best_auc = test_auc
@@ -103,8 +104,8 @@ def train(conf, seed):
                     loss_sum,  aux_loss_sum, top1_acc_sum, target_acc_sum,= 0., 0., 0., 0.
                     test_loss_sum, test_aux_loss_sum, test_top1_acc_sum, test_target_acc_sum, = 0., 0., 0., 0.
                     start_ = time.time()
-                if iter % conf['save_iter'] == 0:
-                    model.save(sess, best_model_path+"--"+str(iter))
+                # if iter % conf['save_iter'] == 0:
+                #     model.save(sess, best_model_path+"--"+str(iter))
 
                 if (iter % conf['lr_decay_steps']) == 0:
                     lr *= 0.5

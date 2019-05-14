@@ -243,6 +243,7 @@ class BaseModel(object):
         for file_ in files_:
             if file_.startswith(prefix):
                 os.remove(os.path.join(save_dir,file_))
+                print("INFO -> update_best_model remove #{}".format(os.path.join(save_dir,file_)))
         self.save(sess, path+"--"+str(iter))
 
     def save(self, sess, path):
