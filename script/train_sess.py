@@ -11,12 +11,13 @@ import os
 
 best_auc = 0.
 
-def eval(sess, model, best_model_path, iter=None, test_batches=1):
+def eval(sess, model, best_model_path, iter=None, test_batches=None):
     loss_sum = 0.
     accuracy_sum = 0.
     aux_loss_sum = 0.
     stored_arr = []
-    for nums in range(1,test_batches+1):
+    nums = 1
+    while not test_batches or nums < test_batches:
         try:
             prob, target, uids, loss, aux_loss, top1_acc, acc = model.calculate(sess, [False, 0.0])
             loss_sum += loss
@@ -27,6 +28,7 @@ def eval(sess, model, best_model_path, iter=None, test_batches=1):
             uid_1 = uids.tolist()
             for u, p ,t in zip(uid_1, prob_1, target_1):
                 stored_arr.append([u, p, t])
+            nums += 1
         except Exception as e :
             print("eval Error : {}".format(traceback.format_exc(e)))
             print("End of test dataset")  # ==> "End of test dataset"
@@ -104,8 +106,8 @@ def train(conf, seed):
                     loss_sum,  aux_loss_sum, top1_acc_sum, target_acc_sum,= 0., 0., 0., 0.
                     test_loss_sum, test_aux_loss_sum, test_top1_acc_sum, test_target_acc_sum, = 0., 0., 0., 0.
                     start_ = time.time()
-                # if iter % conf['save_iter'] == 0:
-                #     model.save(sess, best_model_path+"--"+str(iter))
+                if iter % conf['save_iter'] == 0:
+                    model.update_best_model(sess, best_model_path, iter)
 
                 if (iter % conf['lr_decay_steps']) == 0:
                     lr *= 0.5
@@ -136,7 +138,7 @@ def test(conf, seed):
         latest_model = tf.train.latest_checkpoint(model_dir)
         model.restore(sess, latest_model)
         #### test_batches=100 test for all, get per_user_auc
-        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, None, 100)
+        test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss = eval(sess, model, best_model_path, iter=None, test_batches=None)
         print('All Test Users. test_auc: {} ---- test_user_auc: {} ---- test_loss: {} ---- test_accuracy: {} ---- test_aux_loss: {}'
               .format(test_auc, test_user_auc, test_loss, test_accuracy, test_aux_loss))
 

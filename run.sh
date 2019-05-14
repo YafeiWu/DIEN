@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-config=$1
-outdir=$2
-rm -rf ${outdir}
-mkdir ${outdir}
-mkdir ${outdir}/best_model
-mkdir ${outdir}/logdir ${outdir}/logdir/train ${outdir}/logdir/test
-CUDA_VISIBLE_DEVICES=0 /usr/bin/python2.7 script/train_sess.py train ${config} ${outdir} > ${outdir}/train_sess.log 2>&1 &
-echo "Training started!!"
+task=$1
+config=$2
+outdir=$3
+if [ ${task} == "train" ];then
+    rm -rf ${outdir}
+    mkdir ${outdir}
+    mkdir ${outdir}/best_model
+    mkdir ${outdir}/logdir ${outdir}/logdir/train ${outdir}/logdir/test
+fi
+setsid python script/train_sess.py ${task} ${config} ${outdir} > ${outdir}/${task}_sess.log 2>&1 &
+echo "${task} started!! \t" date
