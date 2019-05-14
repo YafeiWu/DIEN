@@ -9,4 +9,5 @@ if [ ${task} == "train" ];then
     mkdir ${outdir}/logdir ${outdir}/logdir/train ${outdir}/logdir/test
 fi
 setsid python script/train_sess.py ${task} ${config} ${outdir} > ${outdir}/${task}_sess.log 2>&1 &
-echo "${task} started!! \t" date
+echo "${task} started!!"
+date

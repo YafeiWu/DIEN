@@ -75,7 +75,7 @@ class SessionModel(BaseModel):
             UserSeqFeature(f_name="label", f_group='label',f_offset=0, f_ends=0, f_width=1, f_type=tf.float32, f_seqsize=1, f_embedding=False),
             UserSeqFeature(f_name="user_id", f_group='uid',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_uid),
             UserSeqFeature(f_name="tar_weight", f_group='stats', f_offset=-1, f_ends=-1, f_width=1, f_type=tf.float32, f_seqsize=1, f_embedding=False),
-            UserSeqFeature(f_name="tar_item", f_group='vid', f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_mid)
+            UserSeqFeature(f_name="tar_item", f_group='vid', f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_mid),
             UserSeqFeature(f_name="tar_cat", f_group='category',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_cat, f_mask=True),
             UserSeqFeature(f_name="tar_tags", f_group='tag',f_offset=-1, f_ends=-1, f_width=self.fixTagsLen, f_type=tf.int32, f_seqsize=1, f_max=self.n_tag, f_mask=True),
             UserSeqFeature(f_name="seq_size", f_group='stats',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_embedding=False),
