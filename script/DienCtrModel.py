@@ -12,7 +12,7 @@ from datasource import epsilon
 class DienCtrModel(BaseModel):
     """DienCtrModel"""
     def __init__(self, conf="config_dien_ctr.yml", task="train"):
-        super(DienCtrModel, self).__init__()
+        super(DienCtrModel, self).__init__(conf, task)
         self.for_training = tf.placeholder_with_default(tf.constant(False),shape=(),name="training_flag")
         self.lr = tf.placeholder(tf.float64, [],name="learning_rate")
 
