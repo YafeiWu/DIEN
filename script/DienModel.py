@@ -39,7 +39,7 @@ class DIENModel(BaseModel):
 
         # Attention layer
         with tf.name_scope('Attention_layer_1'):
-            att_outputs, alphas = din_fcn_attention(self.item_eb, rnn_outputs, self.attention_size, self.mask,
+            att_outputs, alphas = din_fcn_attention_high_dim(self.item_eb, rnn_outputs, self.attention_size, self.mask,
                                                     softmax_stag=1, stag='1_1', mode='LIST', return_alphas=True)
             tf.summary.histogram('alpha_outputs', alphas)
 
@@ -107,6 +107,20 @@ class DIENModel(BaseModel):
             print("featGroup:\t{}".format(feat_group[feat_name]))
         return feat_group
 
+    def fill_noclkseq(self, eb, eb_dim):
+        eb_1 = tf.expand_dims(eb, 1)
+        eb_2 = tf.tile(eb_1, multiples=[1, self.maxLen/tf.shape(eb)[1], 1, 1])
+        eb_3 = tf.reshape(eb_2,
+                          [-1, self.maxLen, eb_dim])
+        return eb_3
+
+    def reshape_multiseq(self, eb, eb_dim, multi_len, res_len):
+        eb_1  = tf.reshape(eb,
+                           [-1, res_len, multi_len, eb_dim])
+        eb_2 = tf.reshape(eb_1,
+                          [-1, res_len, multi_len * eb_dim ])
+        return eb_2
+
     def inputs_layer(self):
         with tf.name_scope('Inputs'):
             self.for_training = tf.placeholder_with_default(tf.constant(False),shape=(),name="training_flag")
@@ -144,8 +158,8 @@ class DIENModel(BaseModel):
             self.mask = tf.sequence_mask(self.seq_len_ph, self.mask.shape[1], dtype=tf.float32)
 
     def embedding_layer(self):
-        # Embedding layer
         with tf.name_scope('Embedding_layer'):
+            # Embedding layer
             self.utype_embeddings_var = tf.get_variable("utype_embedding_var", [self.n_utype, self.utype_embedding_dim], initializer=tf.random_normal_initializer(stddev=0.01))
             tf.summary.histogram('utype_embedding_var', self.utype_embeddings_var)
             self.utype_batch_embedded = tf.nn.embedding_lookup(self.utype_embeddings_var, self.utype_batch_ph)
@@ -185,3 +199,38 @@ class DIENModel(BaseModel):
                 self.item_his_eb = tf.concat([self.mid_his_batch_embedded, self.cat_his_batch_embedded], 2)
 
             self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
+
+    def auxiliary_net(self, in_, stag='auxiliary_net'):
+        bn1 = tf.layers.batch_normalization(inputs=in_, name='bn1' + stag, reuse=tf.AUTO_REUSE)
+        dnn1 = tf.layers.dense(bn1, 100, activation=None, name='f1' + stag, reuse=tf.AUTO_REUSE)
+        dnn1 = tf.nn.sigmoid(dnn1)
+        dnn2 = tf.layers.dense(dnn1, 50, activation=None, name='f2' + stag, reuse=tf.AUTO_REUSE)
+        dnn2 = tf.nn.sigmoid(dnn2)
+        dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3' + stag, reuse=tf.AUTO_REUSE)
+        y_hat = tf.nn.softmax(dnn3) + epsilon
+        return y_hat
+
+    def auxiliary_loss(self, h_states, click_seq, mask, stag = None):
+        mask = tf.cast(mask, tf.float32)
+        r_slice = tf.convert_to_tensor(randint(0, self.batch_size))
+        head_seq = tf.slice(click_seq, [r_slice, 0, 0], [tf.shape(click_seq)[0]-r_slice, tf.shape(click_seq)[1], tf.shape(click_seq)[2]])
+        tail_seq = tf.slice(click_seq, [0, 0, 0], [r_slice, tf.shape(click_seq)[1], tf.shape(click_seq)[2]])
+        noclick_seq =  tf.reshape(tf.concat([head_seq, tail_seq], 0),[self.batch_size, self.maxLen-1, self.item_feat_dim])
+        click_input_ = tf.concat([h_states, click_seq], -1)
+        noclick_input_ = tf.concat([h_states, noclick_seq], -1)
+        click_prop_ = self.auxiliary_net(click_input_, stag = stag)[:, :, 0]
+        noclick_prop_ = self.auxiliary_net(noclick_input_, stag = stag)[:, :, 0]
+        if self.use_pair_loss:
+            ### pairwise loss
+            pair_prop = tf.sigmoid(click_prop_ - noclick_prop_) + epsilon ### 1 negative sample for each positive sample
+            pair_loss = - tf.reshape(tf.log(pair_prop), [-1, tf.shape(click_seq)[1]]) * mask
+            loss_ = tf.reduce_mean(pair_loss)
+        else:
+            ### ctr loss
+            click_loss_ = - tf.reshape(tf.log(click_prop_), [-1, tf.shape(click_seq)[1]]) * mask
+            noclick_loss_ = - tf.reshape(tf.log(1.0 - noclick_prop_), [-1, tf.shape(noclick_seq)[1]]) * mask
+            loss_ = tf.reduce_mean(click_loss_ + noclick_loss_)
+
+        return loss_
+
+

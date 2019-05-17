@@ -8,6 +8,6 @@ if [ ${task} == "train" ];then
     mkdir ${outdir}/best_model
     mkdir ${outdir}/logdir ${outdir}/logdir/train ${outdir}/logdir/test
 fi
-setsid python script/train_sess.py ${task} ${config} ${outdir} > ${outdir}/${task}_sess.log 2>&1 &
+setsid python script/train.py ${task} ${config} ${outdir} > ${outdir}/${task}_sess.log 2>&1 &
 echo "${task} started!!"
 date

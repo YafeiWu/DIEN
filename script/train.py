@@ -2,6 +2,7 @@ import numpy
 import tensorflow as tf
 from SeqEmbModel import *
 from SessionModel import *
+from DienCtrModel import *
 import time
 import random
 import sys
@@ -60,6 +61,8 @@ def train(conf, seed):
             model = SeqEmbModel(conf)
         elif conf['model_type'] == 'SESS':
             model = SessionModel(conf)
+        elif conf['model_type'] == 'DIEN_CTR':
+            model = DienCtrModel(conf)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         tf.summary.FileWriter(conf['logdir'], sess.graph)
@@ -131,6 +134,8 @@ def test(conf, seed):
             model = SeqEmbModel(conf, task='test')
         elif conf['model_type'] == 'SESS':
             model = SessionModel(conf, task='test')
+        elif conf['model_type'] == 'DIEN_CTR':
+            model = DienCtrModel(conf)
         latest_model = tf.train.latest_checkpoint(model_dir)
         model.restore(sess, latest_model)
         #### test_batches=100 test for all, get per_user_auc
