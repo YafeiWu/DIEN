@@ -48,6 +48,7 @@ class DienCtrModel(BaseModel):
         self.item_feats = None
         self.item_his_eb = None
         self.item_his_eb_sum = None
+        self.seq_len_ph = None
 
         self.y_hat = None
         self.optimizer = None
@@ -62,7 +63,7 @@ class DienCtrModel(BaseModel):
 
         self.run()
 
-    def feat_group(self):
+    def define_features(self):
         self.feat_group = [
             UserSeqFeature(f_name="label", f_group='label',f_offset=0, f_ends=0, f_width=1, f_type=tf.float32, f_seqsize=1, f_embedding=False),
             UserSeqFeature(f_name="user_id", f_group='uid',f_offset=-1, f_ends=-1, f_width=1, f_type=tf.int32, f_seqsize=1, f_max=self.n_uid),
@@ -84,7 +85,7 @@ class DienCtrModel(BaseModel):
             print("INFO -> Raw Feature Group :\t{}".format(u_feat))
 
     def run(self):
-        self.feat_group()
+        self.define_features()
         self.parse2embedding()
         self.build_model()
         self.metrics()
@@ -131,6 +132,7 @@ class DienCtrModel(BaseModel):
                 elif f.f_name == "tar_weight":
                     self.weight = batch_ph
                 elif f.f_name == "seq_size":
+                    self.seq_len_ph = batch_ph
                     mask = np.zeros((self.batch_size, self.maxLen), dtype=np.float32)
                     self.mask = tf.sequence_mask(batch_ph, mask.shape[1], dtype=tf.float32)
 
@@ -187,6 +189,11 @@ class DienCtrModel(BaseModel):
                             self.item_feats = tf.concat([self.item_feats, embedding], 1)
 
 
+            mask_ex = tf.expand_dims(self.mask, -1)
+            mask_ex = tf.tile(mask_ex, [1, 1, tf.shape(self.item_his_eb)[2]])
+            self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb * mask_ex, 1)
+
+
     def build_model(self):
         # RNN layer(-s)
         with tf.name_scope('rnn_1'):
@@ -202,7 +209,7 @@ class DienCtrModel(BaseModel):
 
         # Attention layer
         with tf.name_scope('Attention_layer_1'):
-            att_outputs, alphas = din_fcn_attention(self.item_eb, rnn_outputs, self.attention_size, self.mask,
+            att_outputs, alphas = din_fcn_attention(self.item_feats, rnn_outputs, self.attention_size, self.mask,
                                                     softmax_stag=1, stag='1_1', mode='LIST', return_alphas=True)
             tf.summary.histogram('alpha_outputs', alphas)
 
